@@ -14,7 +14,7 @@ type LegacyRunner struct{}
 
 var legacyRuntimeMu sync.Mutex
 
-func (LegacyRunner) Run(_ context.Context, cfg MapReduceRunConfig) error {
+func (LegacyRunner) Run(ctx context.Context, cfg MapReduceRunConfig) error {
 	if len(cfg.Files) == 0 {
 		return nil
 	}
@@ -30,15 +30,32 @@ func (LegacyRunner) Run(_ context.Context, cfg MapReduceRunConfig) error {
 	if cfg.Port <= 0 {
 		cfg.Port = 10000
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	legacyRuntimeMu.Lock()
 	defer legacyRuntimeMu.Unlock()
-	return mapreduce.StartSingleMachineJobWithAddr(
-		cfg.Files,
-		cfg.PluginPath,
-		cfg.Reducers,
-		cfg.Workers,
-		cfg.InRAM,
-		":"+strconv.Itoa(cfg.Port),
-	)
+
+	done := make(chan error, 1)
+	masterAddr := ":" + strconv.Itoa(cfg.Port)
+	go func() {
+		done <- mapreduce.StartSingleMachineJobWithAddr(cfg.Files, cfg.PluginPath, cfg.Reducers, cfg.Workers, cfg.InRAM, masterAddr)
+	}()
+
+	var canceled bool
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				return err
+			}
+			if canceled {
+				return ctx.Err()
+			}
+			return nil
+		case <-ctx.Done():
+			canceled = true
+		}
+	}
 }
