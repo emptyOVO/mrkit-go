@@ -1,6 +1,7 @@
 package mapreduce
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,16 +33,19 @@ It supports multiple workers threads on a single machine and multiple processes 
 				// expand the file path
 				expandFiles, err := filepath.Glob(f)
 				if err != nil {
-					panic(err)
+					fmt.Fprintf(os.Stderr, "expand input pattern %q failed: %v\n", f, err)
+					os.Exit(2)
 				}
 				tempFiles = append(tempFiles, expandFiles...)
 			}
 
 			pluginFiles, err := filepath.Glob(plugin)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(os.Stderr, "expand plugin path %q failed: %v\n", plugin, err)
+				os.Exit(2)
 			} else if len(pluginFiles) == 0 {
-				panic("No such file")
+				fmt.Fprintf(os.Stderr, "plugin file not found for pattern %q\n", plugin)
+				os.Exit(2)
 			}
 
 			plugin = pluginFiles[0]
@@ -200,7 +204,14 @@ func startWorkerWithRetryE(pluginFile string, nReducer int, startPort int, step 
 func startWorkerOnce(pluginFile string, nReducer int, addr string, storeInRAM bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("%v", r)
+			switch v := r.(type) {
+			case error:
+				err = v
+			case string:
+				err = errors.New(v)
+			default:
+				err = fmt.Errorf("%v", r)
+			}
 		}
 	}()
 	worker.StartWorker(pluginFile, nReducer, addr, storeInRAM)
