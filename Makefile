@@ -1,3 +1,5 @@
+GO_BIN ?= /Users/empty/.g/go/bin/go
+
 all: clean grpc build_plugin
 	-rm output/*
 	-rm mr-out-*
@@ -86,3 +88,9 @@ mysqlbatch_pipeline: batch_pipeline
 mysqlbatch_validate: batch_validate
 
 mysqlbatch_benchmark: batch_benchmark
+
+e2e-mysql-redis:
+	chmod +x scripts/e2e.sh
+	GO_BIN="$(GO_BIN)" scripts/e2e.sh
+
+e2e: e2e-mysql-redis
