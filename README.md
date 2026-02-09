@@ -25,7 +25,7 @@ This section is for first-time users who just want to run an end-to-end MySQL ba
 ### 1) Prepare demo source data
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 \
 MYSQL_DB=mysql SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
 ROWS=5000 KEY_MOD=100 \

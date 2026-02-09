@@ -27,14 +27,14 @@ If you copy this example into another repository, replace that line with your ow
 Recommended: built-in transform (`count` / `minmax` / `topN`) with no plugin build.
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.count.json
 ```
 
 If you need custom aggregation logic, use plugin mode:
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
 go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.json
 ```
@@ -53,7 +53,7 @@ You mainly need to adjust:
 ## 4) (Optional) Prepare demo source data
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 ROWS=20000 MYSQL_SOURCE_DB=mysql SOURCE_TABLE=source_events \
 go run ./cmd/mysqlbatch -mode prepare
 ```
@@ -63,7 +63,7 @@ Before running pipeline, ensure target database in `flow.mysql.json` exists (for
 ## 5) Run by config file (recommended)
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
 ```
 
@@ -76,7 +76,7 @@ What it does:
 ## 6) Validate result
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 MYSQL_DB=mysql SOURCE_TABLE=source_events \
 TARGET_TABLE=agg_results \
 go run ./cmd/mysqlbatch -mode validate
