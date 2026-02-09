@@ -93,3 +93,9 @@ go run ./cmd/batch -check -config example/batch-minimal/flows/cross-db/flow.redi
 - `dial tcp localhost:3306`: MySQL not reachable or credentials incorrect.
 - `plugin.Open ... different version`: rebuild plugin with the same Go environment as runtime.
 - `no reduce output files matched`: pipeline did not produce `mr-out-*.txt` (check plugin path/runtime logs).
+
+## Repro Checklist
+
+For a full end-to-end reproducible checklist (local and Docker), see:
+
+- `docs/repro-checklist.md`
