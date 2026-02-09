@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/emptyOVO/mrkit-go/master"
@@ -74,13 +75,16 @@ func startSingleMachineWorker(plugin string, nWorker int, nReducer int, storeInR
 
 	var wg sync.WaitGroup
 	worker.Init(MasterIP)
+	basePort := masterPort()
 
 	// Start Worker
 	for i := 0; i < nWorker; i++ {
 		wg.Add(1)
 		go func(i0 int) {
-			worker.StartWorker(pluginFile, nReducer, fmt.Sprintf(":1000%v", i0+1), storeInRAM)
-			wg.Done()
+			defer wg.Done()
+			// Keep each worker on a disjoint candidate sequence to avoid collisions.
+			start := basePort + i0 + 1
+			startWorkerWithRetry(pluginFile, nReducer, start, nWorker, storeInRAM)
 		}(i)
 	}
 
@@ -111,13 +115,59 @@ func startWorker(plugin string, id int, nReducer int, storeInRAM bool) {
 
 	var wg sync.WaitGroup
 	worker.Init(MasterIP)
+	basePort := masterPort()
 
 	// Start Worker
 	wg.Add(1)
 	go func() {
-		worker.StartWorker(pluginFile, nReducer, fmt.Sprintf(":1000%v", id+1), storeInRAM)
-		wg.Done()
+		defer wg.Done()
+		start := basePort + id + 1
+		startWorkerWithRetry(pluginFile, nReducer, start, 1, storeInRAM)
 	}()
 
 	wg.Wait()
+}
+
+func masterPort() int {
+	raw := strings.TrimSpace(MasterIP)
+	if raw == "" {
+		return 10000
+	}
+	parts := strings.Split(raw, ":")
+	last := strings.TrimSpace(parts[len(parts)-1])
+	if p, err := strconv.Atoi(last); err == nil && p > 0 {
+		return p
+	}
+	return 10000
+}
+
+func startWorkerWithRetry(pluginFile string, nReducer int, startPort int, step int, storeInRAM bool) {
+	const maxAttempts = 128
+	if step <= 0 {
+		step = 1
+	}
+	for i := 0; i < maxAttempts; i++ {
+		port := startPort + i*step
+		addr := fmt.Sprintf(":%d", port)
+		if err := startWorkerOnce(pluginFile, nReducer, addr, storeInRAM); err != nil {
+			msg := err.Error()
+			if strings.Contains(msg, "address already in use") {
+				fmt.Printf("worker listen %s occupied, trying next port\n", addr)
+				continue
+			}
+			panic(err)
+		}
+		return
+	}
+	panic(fmt.Sprintf("unable to find available worker port from %d after %d attempts", startPort, maxAttempts))
+}
+
+func startWorkerOnce(pluginFile string, nReducer int, addr string, storeInRAM bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+	}()
+	worker.StartWorker(pluginFile, nReducer, addr, storeInRAM)
+	return nil
 }
