@@ -10,6 +10,70 @@ It is based on an existing Go MapReduce implementation and repackaged as a more 
 ![mapReduce](https://github.com/kiarash8112/MapReduce/assets/133909368/03c6b149-213c-4906-91b7-a05c4f083c9e)
 
 
+## Quickstart (Run in 10 Minutes)
+
+This section is for first-time users who just want to run an end-to-end MySQL batch job:
+
+`MySQL source table -> MapReduce -> MySQL sink table`
+
+### 0) Prerequisites
+
+- Go 1.21+ installed
+- MySQL running and reachable (example below uses `localhost:3306`)
+- MySQL account with read/write permission on source/sink databases
+
+### 1) Prepare demo source data
+
+```bash
+cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 \
+MYSQL_DB=mysql SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
+ROWS=5000 KEY_MOD=100 \
+go run ./cmd/mysqlbatch -mode prepare
+```
+
+### 2) Validate config schema (v1)
+
+```bash
+go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.count.json
+```
+
+Expected output:
+
+```text
+config check pass
+```
+
+### 3) Run config-driven flow
+
+Run one of these:
+
+```bash
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.count.json
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.minmax.json
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.topn.json
+```
+
+### 4) Verify success
+
+Expected log includes:
+
+```text
+flow done
+```
+
+Result tables (default sink DB: `mr_target`):
+
+- `agg_count_results`
+- `agg_minmax_results`
+- `agg_topn_results`
+
+### Notes
+
+- `count` is additive and can run with multiple reducers.
+- `minmax` and `topN` are non-additive. Use `reducers=1` in config to avoid cross-reducer merge distortion.
+- For built-in transforms (`count`/`minmax`/`topN`), no prebuilt `.so` is required.
+
 
 ## Features
 - Multiple worker goroutines in one process on a single machine.
@@ -231,18 +295,20 @@ go run ./cmd/mysqlbatch -mode validate
 For a plug-and-play experience (SeaTunnel-like), you can run by a single JSON config:
 
 ```bash
+go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.json
 go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
 ```
 
 Config sections:
 - `source`: MySQL source connection + extract config
-- `transform`: MapReduce plugin + reducers/workers runtime config
+- `transform`: built-in transform (`count` / `minmax` / `topN`) or plugin mode
 - `sink`: MySQL sink connection + import config
 
 Production template (source/sink split + concurrency):
 
 ```json
 {
+  "version": "v1",
   "source": {
     "type": "mysql",
     "db": {
@@ -272,8 +338,8 @@ Production template (source/sink split + concurrency):
     }
   },
   "transform": {
-    "type": "mapreduce",
-    "plugin_path": "cmd/mysql_agg.so",
+    "type": "builtin",
+    "builtin": "count",
     "reducers": 16,
     "workers": 32,
     "in_ram": false,
@@ -310,8 +376,23 @@ Production template (source/sink split + concurrency):
 Run:
 
 ```bash
-go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
 go run ./cmd/mysqlbatch -config /absolute/path/flow.prod.json
+```
+
+Plugin mode is still available (advanced use case):
+
+```json
+{
+  "version": "v1",
+  "transform": {
+    "type": "mapreduce",
+    "plugin_path": "cmd/mysql_agg.so",
+    "reducers": 8,
+    "workers": 16,
+    "in_ram": false,
+    "port": 10000
+  }
+}
 ```
 
 Failure rerun suggestions:

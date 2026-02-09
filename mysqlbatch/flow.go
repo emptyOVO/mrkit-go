@@ -2,7 +2,6 @@ package mysqlbatch
 
 import (
 	"context"
-	"fmt"
 	"os"
 )
 
@@ -12,6 +11,7 @@ import (
 // - transform.type: "mapreduce"
 // - sink.type: "mysql"
 type FlowConfig struct {
+	Version   string              `json:"version"`
 	Source    FlowSourceConfig    `json:"source"`
 	Transform FlowTransformConfig `json:"transform"`
 	Sink      FlowSinkConfig      `json:"sink"`
@@ -25,6 +25,7 @@ type FlowSourceConfig struct {
 
 type FlowTransformConfig struct {
 	Type       string            `json:"type"`
+	Builtin    string            `json:"builtin"`
 	PluginPath string            `json:"plugin_path"`
 	Reducers   int               `json:"reducers"`
 	Workers    int               `json:"workers"`
@@ -44,7 +45,7 @@ func (c *FlowConfig) withDefaults() {
 		c.Source.Type = "mysql"
 	}
 	if c.Transform.Type == "" {
-		c.Transform.Type = "mapreduce"
+		c.Transform.Type = "builtin"
 	}
 	if c.Sink.Type == "" {
 		c.Sink.Type = "mysql"
@@ -54,18 +55,8 @@ func (c *FlowConfig) withDefaults() {
 // RunFlow executes source -> transform -> sink defined by FlowConfig.
 func RunFlow(ctx context.Context, cfg FlowConfig) error {
 	cfg.withDefaults()
-
-	if cfg.Source.Type != "mysql" {
-		return fmt.Errorf("unsupported source.type: %s", cfg.Source.Type)
-	}
-	if cfg.Transform.Type != "mapreduce" {
-		return fmt.Errorf("unsupported transform.type: %s", cfg.Transform.Type)
-	}
-	if cfg.Sink.Type != "mysql" {
-		return fmt.Errorf("unsupported sink.type: %s", cfg.Sink.Type)
-	}
-	if cfg.Transform.PluginPath == "" {
-		return fmt.Errorf("transform.plugin_path is required")
+	if err := ValidateFlowConfig(cfg); err != nil {
+		return err
 	}
 
 	// Apply transform params as environment variables during this flow run.
@@ -91,12 +82,17 @@ func RunFlow(ctx context.Context, cfg FlowConfig) error {
 		}
 	}()
 
+	pluginPath, err := resolveTransformPlugin(cfg.Transform)
+	if err != nil {
+		return err
+	}
+
 	return RunPipeline(ctx, PipelineConfig{
 		SourceDB:   cfg.Source.DB,
 		SinkDB:     cfg.Sink.DB,
 		Source:     cfg.Source.Config,
 		Sink:       cfg.Sink.Config,
-		PluginPath: cfg.Transform.PluginPath,
+		PluginPath: pluginPath,
 		Reducers:   cfg.Transform.Reducers,
 		Workers:    cfg.Transform.Workers,
 		InRAM:      cfg.Transform.InRAM,

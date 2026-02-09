@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -42,16 +41,25 @@ func main() {
 	mode := flag.String("mode", "pipeline", "pipeline|prepare|validate|benchmark")
 	plugin := flag.String("plugin", filepath.Join("cmd", "mysql_agg.so"), "plugin .so path")
 	configPath := flag.String("config", "", "Flow config file path (JSON)")
+	checkOnly := flag.Bool("check", false, "Validate flow config schema only (requires -config)")
 	flag.Parse()
 
 	if *configPath != "" {
 		cfg, err := loadFlowConfig(*configPath)
 		must(err)
+		must(mysqlbatch.ValidateFlowConfig(cfg))
+		if *checkOnly {
+			fmt.Println("config check pass")
+			return
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
 		must(mysqlbatch.RunFlow(ctx, cfg))
 		fmt.Println("flow done")
 		return
+	}
+	if *checkOnly {
+		must(fmt.Errorf("-check requires -config"))
 	}
 
 	baseDB := mysqlbatch.DBConfig{
@@ -195,11 +203,9 @@ func loadFlowConfig(path string) (mysqlbatch.FlowConfig, error) {
 		return cfg, err
 	}
 	defer f.Close()
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return cfg, err
-	}
-	if err := json.Unmarshal(b, &cfg); err != nil {
+	dec := json.NewDecoder(f)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&cfg); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
