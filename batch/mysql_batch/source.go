@@ -1,4 +1,4 @@
-package mysqlbatch
+package mysql_batch
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 // ExportSourceByPKRange exports source rows into shard text files.
 // Each output line format is: id\tbiz_key\tmetric
 func ExportSourceByPKRange(ctx context.Context, db *sql.DB, cfg SourceConfig) ([]string, error) {
-	cfg.withDefaults()
+	cfg.WithDefaults()
 	if cfg.Table == "" {
 		return nil, fmt.Errorf("source table is required")
 	}
@@ -63,7 +63,6 @@ func ExportSourceByPKRange(ctx context.Context, db *sql.DB, cfg SourceConfig) ([
 	}
 
 	type shardTask struct {
-		index int
 		start int64
 		end   int64
 		file  string
@@ -76,7 +75,7 @@ func ExportSourceByPKRange(ctx context.Context, db *sql.DB, cfg SourceConfig) ([
 		}
 		end := start + step
 		file := filepath.Join(cfg.OutputDir, fmt.Sprintf("%s-%05d.txt", cfg.FilePrefix, i))
-		tasks = append(tasks, shardTask{index: i, start: start, end: end, file: file})
+		tasks = append(tasks, shardTask{start: start, end: end, file: file})
 	}
 
 	workerN := cfg.Parallel

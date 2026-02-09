@@ -1,4 +1,4 @@
-package mysqlbatch
+package redis_batch
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-type redisSourceConfig struct {
+type SourceConfig struct {
 	KeyPattern string `json:"key_pattern"`
 	KeyField   string `json:"key_field"`
 	ValField   string `json:"val_field"`
@@ -19,7 +19,7 @@ type redisSourceConfig struct {
 	FilePrefix string `json:"fileprefix"`
 }
 
-func (c *redisSourceConfig) withDefaults() {
+func (c *SourceConfig) WithDefaults() {
 	if c.KeyPattern == "" {
 		c.KeyPattern = "event:*"
 	}
@@ -40,14 +40,14 @@ func (c *redisSourceConfig) withDefaults() {
 	}
 }
 
-type redisSinkConfig struct {
+type SinkConfig struct {
 	KeyPrefix  string `json:"key_prefix"`
 	ValueField string `json:"value_field"`
 	InputGlob  string `json:"inputglob"`
 	Replace    bool   `json:"replace"`
 }
 
-func (c *redisSinkConfig) withDefaults() {
+func (c *SinkConfig) WithDefaults() {
 	if c.KeyPrefix == "" {
 		c.KeyPrefix = "mr:result:"
 	}
@@ -59,8 +59,8 @@ func (c *redisSinkConfig) withDefaults() {
 	}
 }
 
-func ExportSourceFromRedis(ctx context.Context, connCfg redisConnConfig, cfg redisSourceConfig) ([]string, error) {
-	cfg.withDefaults()
+func ExportSource(ctx context.Context, connCfg ConnConfig, cfg SourceConfig) ([]string, error) {
+	cfg.WithDefaults()
 	c, err := openRedis(ctx, connCfg)
 	if err != nil {
 		return nil, err
@@ -99,13 +99,13 @@ func ExportSourceFromRedis(ctx context.Context, connCfg redisConnConfig, cfg red
 		if !ok || len(arr) != 2 {
 			return nil, fmt.Errorf("unexpected SCAN response")
 		}
-		cursor = redisToString(arr[0])
+		cursor = toString(arr[0])
 		keysRaw, ok := arr[1].([]interface{})
 		if !ok {
 			return nil, fmt.Errorf("unexpected SCAN keys response")
 		}
 		for _, kv := range keysRaw {
-			keyName := redisToString(kv)
+			keyName := toString(kv)
 			if keyName == "" {
 				continue
 			}
@@ -117,11 +117,11 @@ func ExportSourceFromRedis(ctx context.Context, connCfg redisConnConfig, cfg red
 			if !ok || len(harr) < 2 {
 				continue
 			}
-			bizKey := redisToString(harr[0])
+			bizKey := toString(harr[0])
 			if bizKey == "" {
 				bizKey = keyName
 			}
-			metric := redisToString(harr[1])
+			metric := toString(harr[1])
 			if metric == "" {
 				continue
 			}
@@ -141,8 +141,8 @@ func ExportSourceFromRedis(ctx context.Context, connCfg redisConnConfig, cfg red
 	return []string{outFile}, nil
 }
 
-func ImportReduceOutputsToRedis(ctx context.Context, connCfg redisConnConfig, cfg redisSinkConfig) error {
-	cfg.withDefaults()
+func ImportReduceOutputs(ctx context.Context, connCfg ConnConfig, cfg SinkConfig) error {
+	cfg.WithDefaults()
 	_ = ctx
 	c, err := openRedis(context.Background(), connCfg)
 	if err != nil {
@@ -169,13 +169,13 @@ func ImportReduceOutputsToRedis(ctx context.Context, connCfg redisConnConfig, cf
 			if !ok || len(arr) != 2 {
 				return fmt.Errorf("unexpected SCAN response")
 			}
-			cursor = redisToString(arr[0])
+			cursor = toString(arr[0])
 			keysRaw, ok := arr[1].([]interface{})
 			if !ok {
 				return fmt.Errorf("unexpected SCAN keys response")
 			}
 			for _, kv := range keysRaw {
-				k := redisToString(kv)
+				k := toString(kv)
 				if k != "" {
 					_, _ = c.do("DEL", k)
 				}

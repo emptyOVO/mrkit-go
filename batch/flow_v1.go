@@ -1,4 +1,4 @@
-package mysqlbatch
+package batch
 
 import (
 	"fmt"
@@ -126,7 +126,7 @@ func ensureBuiltinPlugin(name string) (string, error) {
 		return "", err
 	}
 
-	outDir := filepath.Join(root, ".cache", "mysqlbatch-builtins")
+	outDir := filepath.Join(root, ".cache", "batch-builtins")
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return "", err
 	}
@@ -142,6 +142,6 @@ func projectRoot() (string, error) {
 	if !ok {
 		return "", fmt.Errorf("failed to resolve project path")
 	}
-	// current file is under <root>/mysqlbatch
+	// current file is under <root>/batch
 	return filepath.Dir(filepath.Dir(current)), nil
 }

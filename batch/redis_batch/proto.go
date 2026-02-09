@@ -1,4 +1,4 @@
-package mysqlbatch
+package redis_batch
 
 import (
 	"bufio"
@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-type redisConnConfig struct {
+type ConnConfig struct {
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
 	Password string `json:"password"`
 	DB       int    `json:"db"`
 }
 
-func (c *redisConnConfig) withDefaults() {
+func (c *ConnConfig) WithDefaults() {
 	if c.Host == "" {
 		c.Host = "127.0.0.1"
 	}
@@ -26,20 +26,20 @@ func (c *redisConnConfig) withDefaults() {
 	}
 }
 
-type redisClient struct {
+type client struct {
 	conn net.Conn
 	rd   *bufio.Reader
 }
 
-func openRedis(ctx context.Context, cfg redisConnConfig) (*redisClient, error) {
-	cfg.withDefaults()
+func openRedis(ctx context.Context, cfg ConnConfig) (*client, error) {
+	cfg.WithDefaults()
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	d := &net.Dialer{Timeout: 5 * time.Second}
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
-	c := &redisClient{conn: conn, rd: bufio.NewReader(conn)}
+	c := &client{conn: conn, rd: bufio.NewReader(conn)}
 
 	if cfg.Password != "" {
 		if _, err := c.do("AUTH", cfg.Password); err != nil {
@@ -60,11 +60,11 @@ func openRedis(ctx context.Context, cfg redisConnConfig) (*redisClient, error) {
 	return c, nil
 }
 
-func (c *redisClient) close() error {
+func (c *client) close() error {
 	return c.conn.Close()
 }
 
-func (c *redisClient) do(cmd string, args ...string) (interface{}, error) {
+func (c *client) do(cmd string, args ...string) (interface{}, error) {
 	parts := make([]string, 0, len(args)+1)
 	parts = append(parts, strings.ToUpper(cmd))
 	parts = append(parts, args...)
@@ -96,7 +96,7 @@ func (c *redisClient) do(cmd string, args ...string) (interface{}, error) {
 
 type respErr string
 
-func (c *redisClient) readResp() (interface{}, error) {
+func (c *client) readResp() (interface{}, error) {
 	prefix, err := c.rd.ReadByte()
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func (c *redisClient) readResp() (interface{}, error) {
 	}
 }
 
-func redisToString(v interface{}) string {
+func toString(v interface{}) string {
 	switch t := v.(type) {
 	case nil:
 		return ""

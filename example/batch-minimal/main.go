@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/emptyOVO/mrkit-go/mysqlbatch"
+	"github.com/emptyOVO/mrkit-go/batch"
 )
 
 func getenvDefault(name, d string) string {
@@ -30,21 +30,21 @@ func getenvInt(name string, d int) int {
 }
 
 func main() {
-	baseDB := mysqlbatch.DBConfig{
+	baseDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_HOST", "localhost"),
 		Port:     getenvInt("MYSQL_PORT", 3306),
 		User:     getenvDefault("MYSQL_USER", "root"),
 		Password: getenvDefault("MYSQL_PASSWORD", "123456"),
 		Database: getenvDefault("MYSQL_DB", "mysql"),
 	}
-	sourceDB := mysqlbatch.DBConfig{
+	sourceDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_SOURCE_HOST", baseDB.Host),
 		Port:     getenvInt("MYSQL_SOURCE_PORT", baseDB.Port),
 		User:     getenvDefault("MYSQL_SOURCE_USER", baseDB.User),
 		Password: getenvDefault("MYSQL_SOURCE_PASSWORD", baseDB.Password),
 		Database: getenvDefault("MYSQL_SOURCE_DB", baseDB.Database),
 	}
-	targetDB := mysqlbatch.DBConfig{
+	targetDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_TARGET_HOST", baseDB.Host),
 		Port:     getenvInt("MYSQL_TARGET_PORT", baseDB.Port),
 		User:     getenvDefault("MYSQL_TARGET_USER", baseDB.User),
@@ -52,16 +52,16 @@ func main() {
 		Database: getenvDefault("MYSQL_TARGET_DB", baseDB.Database),
 	}
 
-	cfg := mysqlbatch.PipelineConfig{
+	cfg := batch.PipelineConfig{
 		DB:       baseDB,
 		SourceDB: sourceDB,
 		SinkDB:   targetDB,
-		Source: mysqlbatch.SourceConfig{
+		Source: batch.SourceConfig{
 			Table:    getenvDefault("SOURCE_TABLE", "source_events"),
 			Shards:   getenvInt("SOURCE_SHARDS", 8),
 			Parallel: getenvInt("SOURCE_PARALLEL", 4),
 		},
-		Sink: mysqlbatch.SinkConfig{
+		Sink: batch.SinkConfig{
 			TargetTable: getenvDefault("TARGET_TABLE", "agg_results_xdb"),
 			Replace:     true,
 		},
@@ -72,7 +72,7 @@ func main() {
 		Port:       10000,
 	}
 
-	if err := mysqlbatch.RunPipeline(context.Background(), cfg); err != nil {
+	if err := batch.RunPipeline(context.Background(), cfg); err != nil {
 		log.Fatal(err)
 	}
 }
