@@ -70,6 +70,7 @@ docker run --rm \
 ## Documentation Map
 
 - Config-driven schema, production template, and rerun guidance: [`docs/config-driven-flow.md`](docs/config-driven-flow.md)
+- Full reproducible test checklist (local + Docker + seed + 4 cross-DB paths): [`docs/repro-checklist.md`](docs/repro-checklist.md)
 - Built-in transforms and plugin mode: [`docs/transforms.md`](docs/transforms.md)
 - Go library usage (`batch.RunPipeline`): [`docs/library-usage.md`](docs/library-usage.md)
 - Benchmark usage: [`docs/benchmark.md`](docs/benchmark.md)
