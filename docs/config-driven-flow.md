@@ -1,6 +1,6 @@
 # Config-Driven Flow
 
-This project uses a SeaTunnel-style pipeline config:
+This project uses a config-driven pipeline:
 
 - `source`
 - `transform`
