@@ -36,6 +36,37 @@ go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.js
 
 For cross-DB, seed, benchmark, and plugin scenarios, use the docs below.
 
+## Quickstart (Docker)
+
+Build local image:
+
+```bash
+docker build -t mrkit-go-batch:local .
+```
+
+Validate config in container:
+
+```bash
+docker run --rm \
+  -v "$(pwd)/example/batch-minimal/flows:/app/flows:ro" \
+  mrkit-go-batch:local \
+  -check -config /app/flows/smoke/flow.mysql.count.json
+```
+
+Run flow in container (use `host.docker.internal` for local DB access):
+
+```bash
+docker run --rm \
+  -v "$(pwd)/example/batch-minimal/flows:/app/flows:ro" \
+  -e MYSQL_HOST=host.docker.internal \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_USER=root \
+  -e MYSQL_PASSWORD=123456 \
+  -e MYSQL_DB=mysql \
+  mrkit-go-batch:local \
+  -config /app/flows/smoke/flow.mysql.count.json
+```
+
 ## Documentation Map
 
 - Config-driven schema, production template, and rerun guidance: [`docs/config-driven-flow.md`](docs/config-driven-flow.md)

@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+.cache
+output
+mr-out-*.txt
+txt/mysql_source/chunk-*.txt
+txt/redis_source/chunk-*.txt
+**/.DS_Store
