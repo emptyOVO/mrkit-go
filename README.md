@@ -13,7 +13,7 @@ Primary path for new users:
 
 ## Quickstart (Config-Driven)
 
-### 1) Prepare demo MySQL source data
+### 1) Prepare demo data (optional)
 
 ```bash
 MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 \
@@ -22,16 +22,10 @@ ROWS=5000 KEY_MOD=100 \
 go run ./cmd/batch -mode prepare
 ```
 
-### 2) Validate config schema
+### 2) Validate a config
 
 ```bash
 go run ./cmd/batch -check -config example/batch-minimal/flows/smoke/flow.mysql.count.json
-```
-
-Expected output:
-
-```text
-config check pass
 ```
 
 ### 3) Run a flow
@@ -40,35 +34,7 @@ config check pass
 go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.json
 ```
 
-Cross-DB examples:
-
-```bash
-# mysql -> redis
-go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.mysql_to_redis.count.json
-
-# prepare redis source keys for redis->* examples (db0/event:*)
-go run ./cmd/batch -config example/batch-minimal/flows/seed/flow.seed.redis_source_event.json
-
-# redis -> mysql
-go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.redis_to_mysql.count.json
-
-# redis -> redis
-go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.redis_to_redis.count.json
-```
-
-Expected log includes:
-
-```text
-flow done
-```
-
-## Recommended Structure
-
-- `source`: mysql or redis extraction
-- `transform`: `builtin` (`count` / `minmax` / `topN`) or `mapreduce` plugin
-- `sink`: mysql or redis write-back
-
-For built-in transforms, no prebuilt `.so` is required.
+For cross-DB, seed, benchmark, and plugin scenarios, use the docs below.
 
 ## Documentation Map
 
