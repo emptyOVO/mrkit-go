@@ -166,7 +166,9 @@ func (c *SinkConfig) withDefaults() {
 
 // PipelineConfig describes end-to-end MySQL -> MapReduce -> MySQL job.
 type PipelineConfig struct {
-	DB         DBConfig
+	DB         DBConfig // backward compatibility fallback when SourceDB/SinkDB are not set
+	SourceDB   DBConfig
+	SinkDB     DBConfig
 	Source     SourceConfig
 	Sink       SinkConfig
 	PluginPath string

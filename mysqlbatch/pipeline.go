@@ -23,13 +23,28 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) error {
 		return fmt.Errorf("target table is required")
 	}
 
-	db, err := openDB(ctx, cfg.DB)
+	sourceDBCfg := cfg.SourceDB
+	if sourceDBCfg.Database == "" {
+		sourceDBCfg = cfg.DB
+	}
+	sinkDBCfg := cfg.SinkDB
+	if sinkDBCfg.Database == "" {
+		sinkDBCfg = cfg.DB
+	}
+
+	sourceDB, err := openDB(ctx, sourceDBCfg)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer sourceDB.Close()
 
-	files, err := ExportSourceByPKRange(ctx, db, cfg.Source)
+	sinkDB, err := openDB(ctx, sinkDBCfg)
+	if err != nil {
+		return err
+	}
+	defer sinkDB.Close()
+
+	files, err := ExportSourceByPKRange(ctx, sourceDB, cfg.Source)
 	if err != nil {
 		return err
 	}
@@ -47,5 +62,5 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) error {
 	mapreduce.MasterIP = ":" + strconv.Itoa(cfg.Port)
 	mapreduce.StartSingleMachineJob(files, cfg.PluginPath, cfg.Reducers, cfg.Workers, cfg.InRAM)
 
-	return ImportReduceOutputs(ctx, db, cfg.Sink)
+	return ImportReduceOutputs(ctx, sinkDB, cfg.Sink)
 }

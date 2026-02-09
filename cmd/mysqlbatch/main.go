@@ -41,12 +41,26 @@ func main() {
 	plugin := flag.String("plugin", filepath.Join("cmd", "mysql_agg.so"), "plugin .so path")
 	flag.Parse()
 
-	db := mysqlbatch.DBConfig{
+	baseDB := mysqlbatch.DBConfig{
 		Host:     getenvDefault("MYSQL_HOST", "127.0.0.1"),
 		Port:     getenvInt("MYSQL_PORT", 3306),
 		User:     getenvDefault("MYSQL_USER", "root"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
 		Database: os.Getenv("MYSQL_DB"),
+	}
+	sourceDB := mysqlbatch.DBConfig{
+		Host:     getenvDefault("MYSQL_SOURCE_HOST", baseDB.Host),
+		Port:     getenvInt("MYSQL_SOURCE_PORT", baseDB.Port),
+		User:     getenvDefault("MYSQL_SOURCE_USER", baseDB.User),
+		Password: getenvDefault("MYSQL_SOURCE_PASSWORD", baseDB.Password),
+		Database: getenvDefault("MYSQL_SOURCE_DB", baseDB.Database),
+	}
+	targetDB := mysqlbatch.DBConfig{
+		Host:     getenvDefault("MYSQL_TARGET_HOST", baseDB.Host),
+		Port:     getenvInt("MYSQL_TARGET_PORT", baseDB.Port),
+		User:     getenvDefault("MYSQL_TARGET_USER", baseDB.User),
+		Password: getenvDefault("MYSQL_TARGET_PASSWORD", baseDB.Password),
+		Database: getenvDefault("MYSQL_TARGET_DB", baseDB.Database),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
@@ -76,7 +90,9 @@ func main() {
 	switch *mode {
 	case "pipeline":
 		err := mysqlbatch.RunPipeline(ctx, mysqlbatch.PipelineConfig{
-			DB:         db,
+			DB:         baseDB,
+			SourceDB:   sourceDB,
+			SinkDB:     targetDB,
 			Source:     sourceCfg,
 			Sink:       sinkCfg,
 			PluginPath: *plugin,
@@ -88,7 +104,7 @@ func main() {
 		must(err)
 		fmt.Println("pipeline done")
 	case "prepare":
-		dbc, err := mysqlbatch.OpenForApp(ctx, db)
+		dbc, err := mysqlbatch.OpenForApp(ctx, sourceDB)
 		must(err)
 		defer dbc.Close()
 		err = mysqlbatch.PrepareSyntheticSource(ctx, dbc, mysqlbatch.PrepareConfig{
@@ -99,7 +115,7 @@ func main() {
 		must(err)
 		fmt.Println("prepare done")
 	case "validate":
-		dbc, err := mysqlbatch.OpenForApp(ctx, db)
+		dbc, err := mysqlbatch.OpenForApp(ctx, baseDB)
 		must(err)
 		defer dbc.Close()
 		err = mysqlbatch.ValidateAggregation(ctx, dbc, mysqlbatch.ValidateConfig{
@@ -114,7 +130,7 @@ func main() {
 		fmt.Println("validate pass")
 	case "benchmark":
 		result, err := mysqlbatch.RunBenchmark(ctx, mysqlbatch.BenchmarkConfig{
-			DB:      db,
+			DB:      baseDB,
 			Prepare: getenvBool("PREPARE_DATA", false),
 			PrepareC: mysqlbatch.PrepareConfig{
 				SourceTable: sourceTable,
@@ -122,6 +138,8 @@ func main() {
 				KeyMod:      int64(getenvInt("KEY_MOD", 100000)),
 			},
 			Pipeline: mysqlbatch.PipelineConfig{
+				SourceDB:   sourceDB,
+				SinkDB:     targetDB,
 				Source:     sourceCfg,
 				Sink:       sinkCfg,
 				PluginPath: *plugin,
