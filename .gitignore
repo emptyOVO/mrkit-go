@@ -1,0 +1,15 @@
+.DS_Store
+.cache/
+.idea/
+.envrc
+
+# Build artifacts
+*.so
+mr-out-*.txt
+
+# Runtime output
+output/
+txt/mysql_source/
+
+# Example local binary
+example/mysqlbatch-minimal/mysqlbatch-minimal
