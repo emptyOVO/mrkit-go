@@ -4,11 +4,14 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/batch/mysql_batch"
 	"github.com/emptyOVO/mrkit-go/batch/redis_batch"
 )
+
+var transformEnvMu sync.Mutex
 
 // FlowConfig describes a SeaTunnel-like source/transform/sink pipeline.
 type FlowConfig struct {
@@ -185,6 +188,12 @@ func runFlowInternal(ctx context.Context, cfg FlowConfig, collectDur bool) (Flow
 }
 
 func withTransformParams(params map[string]string, run func() error) error {
+	if len(params) == 0 {
+		return run()
+	}
+	transformEnvMu.Lock()
+	defer transformEnvMu.Unlock()
+
 	restore := make(map[string]*string, len(params))
 	for k, v := range params {
 		if old, ok := os.LookupEnv(k); ok {
