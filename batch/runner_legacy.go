@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	mapreduce "github.com/emptyOVO/mrkit-go"
 )
 
 // LegacyRunner uses the current in-process legacy mapreduce runtime.
 type LegacyRunner struct{}
+
+var legacyRuntimeMu sync.Mutex
 
 func (LegacyRunner) Run(_ context.Context, cfg MapReduceRunConfig) error {
 	if len(cfg.Files) == 0 {
@@ -28,7 +31,14 @@ func (LegacyRunner) Run(_ context.Context, cfg MapReduceRunConfig) error {
 		cfg.Port = 10000
 	}
 
-	mapreduce.MasterIP = ":" + strconv.Itoa(cfg.Port)
-	mapreduce.StartSingleMachineJob(cfg.Files, cfg.PluginPath, cfg.Reducers, cfg.Workers, cfg.InRAM)
-	return nil
+	legacyRuntimeMu.Lock()
+	defer legacyRuntimeMu.Unlock()
+	return mapreduce.StartSingleMachineJobWithAddr(
+		cfg.Files,
+		cfg.PluginPath,
+		cfg.Reducers,
+		cfg.Workers,
+		cfg.InRAM,
+		":"+strconv.Itoa(cfg.Port),
+	)
 }

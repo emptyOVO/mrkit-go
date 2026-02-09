@@ -67,15 +67,22 @@ It supports multiple workers threads on a single machine and multiple processes 
 }
 
 func startSingleMachineWorker(plugin string, nWorker int, nReducer int, storeInRAM bool) {
+	if err := startSingleMachineWorkerWithMaster(MasterIP, plugin, nWorker, nReducer, storeInRAM); err != nil {
+		panic(err)
+	}
+}
+
+func startSingleMachineWorkerWithMaster(masterAddr string, plugin string, nWorker int, nReducer int, storeInRAM bool) error {
 	if nWorker < nReducer {
-		panic("Need more worker!")
+		return fmt.Errorf("Need more worker!")
 	}
 
 	pluginFile, _ := filepath.Abs(plugin)
 
 	var wg sync.WaitGroup
-	worker.Init(MasterIP)
-	basePort := masterPort()
+	worker.Init(masterAddr)
+	basePort := masterPort(masterAddr)
+	errCh := make(chan error, nWorker)
 
 	// Start Worker
 	for i := 0; i < nWorker; i++ {
@@ -84,14 +91,27 @@ func startSingleMachineWorker(plugin string, nWorker int, nReducer int, storeInR
 			defer wg.Done()
 			// Keep each worker on a disjoint candidate sequence to avoid collisions.
 			start := basePort + i0 + 1
-			startWorkerWithRetry(pluginFile, nReducer, start, nWorker, storeInRAM)
+			if err := startWorkerWithRetryE(pluginFile, nReducer, start, nWorker, storeInRAM); err != nil {
+				errCh <- err
+			}
 		}(i)
 	}
 
 	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		return err
+	}
+	return nil
 }
 
 func startMaster(input []string, nWorker int, nReducer int) {
+	if err := startMasterWithAddr(MasterIP, input, nWorker, nReducer); err != nil {
+		panic(err)
+	}
+}
+
+func startMasterWithAddr(masterAddr string, input []string, nWorker int, nReducer int) error {
 	inputFiles := []string{}
 	for _, s := range input {
 		f, _ := filepath.Abs(s)
@@ -103,33 +123,42 @@ func startMaster(input []string, nWorker int, nReducer int) {
 	// master.StartMaster(os.Args[1:], nReducer, MasterIP)
 	wg.Add(1)
 	go func() {
-		master.StartMaster(inputFiles, nWorker, nReducer, MasterIP)
+		master.StartMaster(inputFiles, nWorker, nReducer, masterAddr)
 		wg.Done()
 	}()
 
 	wg.Wait()
+	return nil
 }
 
 func startWorker(plugin string, id int, nReducer int, storeInRAM bool) {
+	if err := startWorkerWithMaster(MasterIP, plugin, id, nReducer, storeInRAM); err != nil {
+		panic(err)
+	}
+}
+
+func startWorkerWithMaster(masterAddr string, plugin string, id int, nReducer int, storeInRAM bool) error {
 	pluginFile, _ := filepath.Abs(plugin)
 
 	var wg sync.WaitGroup
-	worker.Init(MasterIP)
-	basePort := masterPort()
+	worker.Init(masterAddr)
+	basePort := masterPort(masterAddr)
+	var runErr error
 
 	// Start Worker
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		start := basePort + id + 1
-		startWorkerWithRetry(pluginFile, nReducer, start, 1, storeInRAM)
+		runErr = startWorkerWithRetryE(pluginFile, nReducer, start, 1, storeInRAM)
 	}()
 
 	wg.Wait()
+	return runErr
 }
 
-func masterPort() int {
-	raw := strings.TrimSpace(MasterIP)
+func masterPort(masterAddr string) int {
+	raw := strings.TrimSpace(masterAddr)
 	if raw == "" {
 		return 10000
 	}
@@ -142,6 +171,12 @@ func masterPort() int {
 }
 
 func startWorkerWithRetry(pluginFile string, nReducer int, startPort int, step int, storeInRAM bool) {
+	if err := startWorkerWithRetryE(pluginFile, nReducer, startPort, step, storeInRAM); err != nil {
+		panic(err)
+	}
+}
+
+func startWorkerWithRetryE(pluginFile string, nReducer int, startPort int, step int, storeInRAM bool) error {
 	const maxAttempts = 128
 	if step <= 0 {
 		step = 1
@@ -155,11 +190,11 @@ func startWorkerWithRetry(pluginFile string, nReducer int, startPort int, step i
 				fmt.Printf("worker listen %s occupied, trying next port\n", addr)
 				continue
 			}
-			panic(err)
+			return err
 		}
-		return
+		return nil
 	}
-	panic(fmt.Sprintf("unable to find available worker port from %d after %d attempts", startPort, maxAttempts))
+	return fmt.Errorf("unable to find available worker port from %d after %d attempts", startPort, maxAttempts)
 }
 
 func startWorkerOnce(pluginFile string, nReducer int, addr string, storeInRAM bool) (err error) {
