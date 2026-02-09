@@ -22,13 +22,21 @@ replace github.com/emptyOVO/mrkit-go => ../..
 
 If you copy this example into another repository, replace that line with your own module source (for example a git tag/version).
 
-## 2) Prepare plugin
+## 2) Choose transform mode
 
-`mysqlbatch` pipeline needs a MapReduce plugin (`.so`). Build one first:
+Recommended: built-in transform (`count` / `minmax` / `topN`) with no plugin build.
+
+```bash
+cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.count.json
+```
+
+If you need custom aggregation logic, use plugin mode:
 
 ```bash
 cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
 go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
+go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.json
 ```
 
 ## 3) Prepare flow config
@@ -39,7 +47,8 @@ You mainly need to adjust:
 - `source.db` / `sink.db`
 - `source.config.table`
 - `sink.config.targettable`
-- `transform.plugin_path`
+- `version` (keep `v1`)
+- `transform` (`type: builtin` + `builtin: count|minmax|topN`, or plugin mode)
 
 ## 4) (Optional) Prepare demo source data
 
