@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -39,7 +41,18 @@ func getenvBool(name string, d bool) bool {
 func main() {
 	mode := flag.String("mode", "pipeline", "pipeline|prepare|validate|benchmark")
 	plugin := flag.String("plugin", filepath.Join("cmd", "mysql_agg.so"), "plugin .so path")
+	configPath := flag.String("config", "", "Flow config file path (JSON)")
 	flag.Parse()
+
+	if *configPath != "" {
+		cfg, err := loadFlowConfig(*configPath)
+		must(err)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
+		defer cancel()
+		must(mysqlbatch.RunFlow(ctx, cfg))
+		fmt.Println("flow done")
+		return
+	}
 
 	baseDB := mysqlbatch.DBConfig{
 		Host:     getenvDefault("MYSQL_HOST", "127.0.0.1"),
@@ -173,4 +186,21 @@ func must(err error) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func loadFlowConfig(path string) (mysqlbatch.FlowConfig, error) {
+	var cfg mysqlbatch.FlowConfig
+	f, err := os.Open(path)
+	if err != nil {
+		return cfg, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return cfg, err
+	}
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }

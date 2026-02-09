@@ -1,17 +1,18 @@
 # mysqlbatch-minimal
 
 A copy-paste-ready minimal integration example for using `github.com/emptyOVO/mrkit-go/mysqlbatch` in an external project.
-This version demonstrates **cross-database** pipeline:
+This version demonstrates **cross-database** pipeline and **config-driven run**:
 - read from source DB/table
 - run MapReduce
 - write aggregated result to target DB/table
 
 ## 1) Files
 
-This example only needs:
+This example includes:
 
 - `go.mod`
 - `main.go`
+- `flow.mysql.json`
 
 For local development in this repository, `go.mod` uses:
 
@@ -30,27 +31,17 @@ cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
 go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
 ```
 
-## 3) Set MySQL env vars
+## 3) Prepare flow config
 
-```bash
-export MYSQL_HOST=localhost
-export MYSQL_PORT=3306
-export MYSQL_USER=root
-export MYSQL_PASSWORD=123456
-export MYSQL_DB=mysql
+Use `example/mysqlbatch-minimal/flow.mysql.json` as the template.
+You mainly need to adjust:
 
-# Source and target databases (cross DB)
-export MYSQL_SOURCE_DB=mysql
-export MYSQL_TARGET_DB=mr_target_localhost
-
-# Source/target tables
-export SOURCE_TABLE=source_events
-export TARGET_TABLE=agg_results_localhost
-```
+- `source.db` / `sink.db`
+- `source.config.table`
+- `sink.config.targettable`
+- `transform.plugin_path`
 
 ## 4) (Optional) Prepare demo source data
-
-Use the built-in runner once to create demo data:
 
 ```bash
 cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
@@ -58,14 +49,13 @@ ROWS=20000 MYSQL_SOURCE_DB=mysql SOURCE_TABLE=source_events \
 go run ./cmd/mysqlbatch -mode prepare
 ```
 
-Before running pipeline, ensure target database exists (for example: `mr_target_localhost`).
+Before running pipeline, ensure target database in `flow.mysql.json` exists (for example: `mr_target`).
 
-## 5) Run this minimal external example
+## 5) Run by config file (recommended)
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go/example/mysqlbatch-minimal
-go mod tidy
-go run .
+cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
 ```
 
 What it does:
@@ -79,7 +69,7 @@ What it does:
 ```bash
 cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
 MYSQL_DB=mysql SOURCE_TABLE=source_events \
-TARGET_TABLE=agg_results_localhost \
+TARGET_TABLE=agg_results \
 go run ./cmd/mysqlbatch -mode validate
 ```
 

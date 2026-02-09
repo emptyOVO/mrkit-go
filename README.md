@@ -226,6 +226,19 @@ SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
 go run ./cmd/mysqlbatch -mode validate
 ```
 
+### Config-driven flow (source/transform/sink)
+
+For a plug-and-play experience (SeaTunnel-like), you can run by a single JSON config:
+
+```bash
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
+```
+
+Config sections:
+- `source`: MySQL source connection + extract config
+- `transform`: MapReduce plugin + reducers/workers runtime config
+- `sink`: MySQL sink connection + import config
+
 Minimal external integration example:
 - `example/mysqlbatch-minimal/go.mod`
 - `example/mysqlbatch-minimal/main.go`
