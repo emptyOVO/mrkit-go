@@ -1,4 +1,4 @@
-package mysqlbatch
+package batch
 
 import (
 	"fmt"

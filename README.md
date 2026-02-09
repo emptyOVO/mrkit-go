@@ -25,17 +25,17 @@ This section is for first-time users who just want to run an end-to-end MySQL ba
 ### 1) Prepare demo source data
 
 ```bash
-cd /Users/empty/Library/Mobile Documents/com~apple~CloudDocs/毕设/mrkit-go
+cd /path/to/mrkit-go
 MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 \
 MYSQL_DB=mysql SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
 ROWS=5000 KEY_MOD=100 \
-go run ./cmd/mysqlbatch -mode prepare
+go run ./cmd/batch -mode prepare
 ```
 
 ### 2) Validate config schema (v1)
 
 ```bash
-go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.count.json
+go run ./cmd/batch -check -config example/batch-minimal/mysqlbatch/flow.mysql.count.json
 ```
 
 Expected output:
@@ -49,9 +49,29 @@ config check pass
 Run one of these:
 
 ```bash
-go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.count.json
-go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.minmax.json
-go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.topn.json
+go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.count.json
+go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.minmax.json
+go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.topn.json
+```
+
+Cross-DB examples:
+
+```bash
+# mysql -> redis
+go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
+
+# redis -> mysql
+go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_mysql.count.json
+
+# redis -> redis
+go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_redis.count.json
+```
+
+Flow benchmark by config (works for mysql/redis source/sink):
+
+```bash
+go run ./cmd/batch -mode benchmark -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
+go run ./cmd/batch -mode benchmark -config example/batch-minimal/redisbatch/flow.redis_to_redis.count.json
 ```
 
 ### 4) Verify success
@@ -210,7 +230,7 @@ Flags:
 
 The framework now provides a **Go library** for MySQL source/sink and benchmark workflows:
 
-- package: `mysqlbatch`
+- package: `batch`
 - source read: primary-key range sharding (`id` range split)
 - sink write: batch stage insert + grouped upsert
 - end-to-end: MySQL -> MapReduce -> MySQL in one Go call
@@ -226,36 +246,36 @@ package main
 import (
 	"context"
 
-	"github.com/emptyOVO/mrkit-go/mysqlbatch"
+	"github.com/emptyOVO/mrkit-go/batch"
 )
 
 func main() {
-	_ = mysqlbatch.RunPipeline(context.Background(), mysqlbatch.PipelineConfig{
-		DB: mysqlbatch.DBConfig{
+	_ = batch.RunPipeline(context.Background(), batch.PipelineConfig{
+		DB: batch.DBConfig{
 			Host:     "127.0.0.1",
 			Port:     3306,
 			User:     "root",
 			Password: "123456",
 			Database: "mysql",
 		},
-		SourceDB: mysqlbatch.DBConfig{
+		SourceDB: batch.DBConfig{
 			Host:     "127.0.0.1",
 			Port:     3306,
 			User:     "root",
 			Password: "123456",
 			Database: "mysql",
 		},
-		SinkDB: mysqlbatch.DBConfig{
+		SinkDB: batch.DBConfig{
 			Host:     "127.0.0.1",
 			Port:     3306,
 			User:     "root",
 			Password: "123456",
 			Database: "mr_target",
 		},
-		Source: mysqlbatch.SourceConfig{
+		Source: batch.SourceConfig{
 			Table: "source_events",
 		},
-		Sink: mysqlbatch.SinkConfig{
+		Sink: batch.SinkConfig{
 			TargetTable: "agg_results",
 			Replace:     true,
 		},
@@ -276,18 +296,18 @@ This repo also includes a runner command based on the same library:
 # 1) prepare synthetic source table (default 10m rows)
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results ROWS=10000000 \
-go run ./cmd/mysqlbatch -mode prepare
+go run ./cmd/batch -mode prepare
 
 # 2) run end-to-end pipeline (source mysql -> target mr_target)
 MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 MYSQL_SOURCE_DB=mysql MYSQL_TARGET_DB=mr_target \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
-go run ./cmd/mysqlbatch -mode pipeline -plugin cmd/mysql_agg.so
+go run ./cmd/batch -mode pipeline -plugin cmd/mysql_agg.so
 
 # 3) validate correctness
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
-go run ./cmd/mysqlbatch -mode validate
+go run ./cmd/batch -mode validate
 ```
 
 ### Config-driven flow (source/transform/sink)
@@ -295,14 +315,14 @@ go run ./cmd/mysqlbatch -mode validate
 For a plug-and-play experience (SeaTunnel-like), you can run by a single JSON config:
 
 ```bash
-go run ./cmd/mysqlbatch -check -config example/mysqlbatch-minimal/flow.mysql.json
-go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
+go run ./cmd/batch -check -config example/batch-minimal/mysqlbatch/flow.mysql.json
+go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.json
 ```
 
 Config sections:
 - `source`: MySQL source connection + extract config
 - `transform`: built-in transform (`count` / `minmax` / `topN`) or plugin mode
-- `sink`: MySQL sink connection + import config
+- `sink`: MySQL or Redis sink config
 
 Production template (source/sink split + concurrency):
 
@@ -376,7 +396,7 @@ Production template (source/sink split + concurrency):
 Run:
 
 ```bash
-go run ./cmd/mysqlbatch -config /absolute/path/flow.prod.json
+go run ./cmd/batch -config /absolute/path/flow.prod.json
 ```
 
 Plugin mode is still available (advanced use case):
@@ -403,15 +423,15 @@ Failure rerun suggestions:
 - Start with moderate parallelism: `shards=4x~8x reducers`, `workers=2x reducers`, then tune by DB load.
 
 Minimal external integration example:
-- `example/mysqlbatch-minimal/go.mod`
-- `example/mysqlbatch-minimal/main.go`
+- `example/batch-minimal/go.mod`
+- `example/batch-minimal/main.go`
 
 ### Benchmark
 
 ```bash
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results PREPARE_DATA=true ROWS=10000000 \
-go run ./cmd/mysqlbatch -mode benchmark -plugin cmd/mysql_agg.so
+go run ./cmd/batch -mode benchmark -plugin cmd/mysql_agg.so
 ```
 
 ## Contributions

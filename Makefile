@@ -67,14 +67,22 @@ clean_port :
 mysql_build_plugin:
 	$(GO_BIN) build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
 
-mysqlbatch_prepare:
-	go run ./cmd/mysqlbatch -mode prepare
+batch_prepare:
+	go run ./cmd/batch -mode prepare
 
-mysqlbatch_pipeline:
-	go run ./cmd/mysqlbatch -mode pipeline -plugin cmd/mysql_agg.so
+batch_pipeline:
+	go run ./cmd/batch -mode pipeline -plugin cmd/mysql_agg.so
 
-mysqlbatch_validate:
-	go run ./cmd/mysqlbatch -mode validate
+batch_validate:
+	go run ./cmd/batch -mode validate
 
-mysqlbatch_benchmark:
-	go run ./cmd/mysqlbatch -mode benchmark -plugin cmd/mysql_agg.so
+batch_benchmark:
+	go run ./cmd/batch -mode benchmark -plugin cmd/mysql_agg.so
+
+mysqlbatch_prepare: batch_prepare
+
+mysqlbatch_pipeline: batch_pipeline
+
+mysqlbatch_validate: batch_validate
+
+mysqlbatch_benchmark: batch_benchmark

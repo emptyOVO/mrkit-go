@@ -1,4 +1,4 @@
-package mysqlbatch
+package mysql_batch
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 
 // ImportReduceOutputs imports mr-out-* files into target table with batch upsert.
 func ImportReduceOutputs(ctx context.Context, db *sql.DB, cfg SinkConfig) error {
-	cfg.withDefaults()
+	cfg.WithDefaults()
 	if cfg.TargetTable == "" {
 		return fmt.Errorf("target table is required")
 	}

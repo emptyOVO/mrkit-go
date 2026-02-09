@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/emptyOVO/mrkit-go/mysqlbatch"
+	"github.com/emptyOVO/mrkit-go/batch"
 )
 
 func getenvInt(name string, d int) int {
@@ -47,36 +47,45 @@ func main() {
 	if *configPath != "" {
 		cfg, err := loadFlowConfig(*configPath)
 		must(err)
-		must(mysqlbatch.ValidateFlowConfig(cfg))
+		must(batch.ValidateFlowConfig(cfg))
 		if *checkOnly {
 			fmt.Println("config check pass")
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
-		must(mysqlbatch.RunFlow(ctx, cfg))
-		fmt.Println("flow done")
+		switch *mode {
+		case "pipeline":
+			must(batch.RunFlow(ctx, cfg))
+			fmt.Println("flow done")
+		case "benchmark":
+			result, err := batch.RunFlowBenchmark(ctx, cfg)
+			must(err)
+			fmt.Printf("source=%s transform=%s sink=%s total=%s\n", result.SourceDuration, result.TransformDuration, result.SinkDuration, result.TotalDuration)
+		default:
+			must(fmt.Errorf("mode %s is not supported with -config (use pipeline|benchmark)", *mode))
+		}
 		return
 	}
 	if *checkOnly {
 		must(fmt.Errorf("-check requires -config"))
 	}
 
-	baseDB := mysqlbatch.DBConfig{
+	baseDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_HOST", "127.0.0.1"),
 		Port:     getenvInt("MYSQL_PORT", 3306),
 		User:     getenvDefault("MYSQL_USER", "root"),
 		Password: os.Getenv("MYSQL_PASSWORD"),
 		Database: os.Getenv("MYSQL_DB"),
 	}
-	sourceDB := mysqlbatch.DBConfig{
+	sourceDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_SOURCE_HOST", baseDB.Host),
 		Port:     getenvInt("MYSQL_SOURCE_PORT", baseDB.Port),
 		User:     getenvDefault("MYSQL_SOURCE_USER", baseDB.User),
 		Password: getenvDefault("MYSQL_SOURCE_PASSWORD", baseDB.Password),
 		Database: getenvDefault("MYSQL_SOURCE_DB", baseDB.Database),
 	}
-	targetDB := mysqlbatch.DBConfig{
+	targetDB := batch.DBConfig{
 		Host:     getenvDefault("MYSQL_TARGET_HOST", baseDB.Host),
 		Port:     getenvInt("MYSQL_TARGET_PORT", baseDB.Port),
 		User:     getenvDefault("MYSQL_TARGET_USER", baseDB.User),
@@ -89,7 +98,7 @@ func main() {
 	sourceTable := getenvDefault("SOURCE_TABLE", "source_events")
 	targetTable := getenvDefault("TARGET_TABLE", "agg_results")
 
-	sourceCfg := mysqlbatch.SourceConfig{
+	sourceCfg := batch.SourceConfig{
 		Table:     sourceTable,
 		PKColumn:  getenvDefault("PK_COL", "id"),
 		KeyColumn: getenvDefault("KEY_COL", "biz_key"),
@@ -99,7 +108,7 @@ func main() {
 		Parallel:  getenvInt("SOURCE_PARALLEL", 4),
 		OutputDir: getenvDefault("SOURCE_OUT_DIR", filepath.Join("txt", "mysql_source")),
 	}
-	sinkCfg := mysqlbatch.SinkConfig{
+	sinkCfg := batch.SinkConfig{
 		TargetTable: targetTable,
 		KeyColumn:   getenvDefault("TARGET_KEY_COL", "biz_key"),
 		ValColumn:   getenvDefault("TARGET_VALUE_COL", "metric_sum"),
@@ -110,7 +119,7 @@ func main() {
 
 	switch *mode {
 	case "pipeline":
-		err := mysqlbatch.RunPipeline(ctx, mysqlbatch.PipelineConfig{
+		err := batch.RunPipeline(ctx, batch.PipelineConfig{
 			DB:         baseDB,
 			SourceDB:   sourceDB,
 			SinkDB:     targetDB,
@@ -125,10 +134,10 @@ func main() {
 		must(err)
 		fmt.Println("pipeline done")
 	case "prepare":
-		dbc, err := mysqlbatch.OpenForApp(ctx, sourceDB)
+		dbc, err := batch.OpenForApp(ctx, sourceDB)
 		must(err)
 		defer dbc.Close()
-		err = mysqlbatch.PrepareSyntheticSource(ctx, dbc, mysqlbatch.PrepareConfig{
+		err = batch.PrepareSyntheticSource(ctx, dbc, batch.PrepareConfig{
 			SourceTable: sourceTable,
 			Rows:        int64(getenvInt("ROWS", 10000000)),
 			KeyMod:      int64(getenvInt("KEY_MOD", 100000)),
@@ -136,10 +145,10 @@ func main() {
 		must(err)
 		fmt.Println("prepare done")
 	case "validate":
-		dbc, err := mysqlbatch.OpenForApp(ctx, baseDB)
+		dbc, err := batch.OpenForApp(ctx, baseDB)
 		must(err)
 		defer dbc.Close()
-		err = mysqlbatch.ValidateAggregation(ctx, dbc, mysqlbatch.ValidateConfig{
+		err = batch.ValidateAggregation(ctx, dbc, batch.ValidateConfig{
 			SourceTable: sourceTable,
 			SourceKey:   getenvDefault("SOURCE_KEY_COL", "biz_key"),
 			SourceVal:   getenvDefault("SOURCE_VALUE_COL", "metric"),
@@ -150,15 +159,15 @@ func main() {
 		must(err)
 		fmt.Println("validate pass")
 	case "benchmark":
-		result, err := mysqlbatch.RunBenchmark(ctx, mysqlbatch.BenchmarkConfig{
+		result, err := batch.RunBenchmark(ctx, batch.BenchmarkConfig{
 			DB:      baseDB,
 			Prepare: getenvBool("PREPARE_DATA", false),
-			PrepareC: mysqlbatch.PrepareConfig{
+			PrepareC: batch.PrepareConfig{
 				SourceTable: sourceTable,
 				Rows:        int64(getenvInt("ROWS", 10000000)),
 				KeyMod:      int64(getenvInt("KEY_MOD", 100000)),
 			},
-			Pipeline: mysqlbatch.PipelineConfig{
+			Pipeline: batch.PipelineConfig{
 				SourceDB:   sourceDB,
 				SinkDB:     targetDB,
 				Source:     sourceCfg,
@@ -169,7 +178,7 @@ func main() {
 				InRAM:      getenvBool("MR_IN_RAM", false),
 				Port:       getenvInt("MR_PORT", 10000),
 			},
-			Validate: mysqlbatch.ValidateConfig{
+			Validate: batch.ValidateConfig{
 				SourceTable: sourceTable,
 				TargetTable: targetTable,
 			},
@@ -196,8 +205,8 @@ func must(err error) {
 	}
 }
 
-func loadFlowConfig(path string) (mysqlbatch.FlowConfig, error) {
-	var cfg mysqlbatch.FlowConfig
+func loadFlowConfig(path string) (batch.FlowConfig, error) {
+	var cfg batch.FlowConfig
 	f, err := os.Open(path)
 	if err != nil {
 		return cfg, err

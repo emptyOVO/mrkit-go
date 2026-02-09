@@ -1,4 +1,4 @@
-module example.com/mysqlbatch-minimal
+module example.com/batch-minimal
 
 go 1.17
 

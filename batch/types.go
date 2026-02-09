@@ -1,4 +1,4 @@
-package mysqlbatch
+package batch
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/emptyOVO/mrkit-go/batch/mysql_batch"
+	"github.com/emptyOVO/mrkit-go/batch/redis_batch"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -88,81 +90,12 @@ func quoteIdentifier(s string) (string, error) {
 	return "`" + s + "`", nil
 }
 
-func asString(v interface{}) string {
-	switch t := v.(type) {
-	case nil:
-		return ""
-	case []byte:
-		return string(t)
-	default:
-		return fmt.Sprint(t)
-	}
-}
-
-// SourceConfig configures source export from MySQL table to text shards.
-type SourceConfig struct {
-	Table      string
-	PKColumn   string
-	KeyColumn  string
-	ValColumn  string
-	Where      string
-	Shards     int
-	Parallel   int
-	OutputDir  string
-	FilePrefix string
-}
-
-func (c *SourceConfig) withDefaults() {
-	if c.PKColumn == "" {
-		c.PKColumn = "id"
-	}
-	if c.KeyColumn == "" {
-		c.KeyColumn = "biz_key"
-	}
-	if c.ValColumn == "" {
-		c.ValColumn = "metric"
-	}
-	if c.Where == "" {
-		c.Where = "1=1"
-	}
-	if c.Shards <= 0 {
-		c.Shards = 16
-	}
-	if c.Parallel <= 0 {
-		c.Parallel = 4
-	}
-	if c.OutputDir == "" {
-		c.OutputDir = "txt/mysql_source"
-	}
-	if c.FilePrefix == "" {
-		c.FilePrefix = "chunk"
-	}
-}
-
-// SinkConfig configures reduce output import into MySQL.
-type SinkConfig struct {
-	TargetTable string
-	KeyColumn   string
-	ValColumn   string
-	InputGlob   string
-	Replace     bool
-	BatchSize   int
-}
-
-func (c *SinkConfig) withDefaults() {
-	if c.KeyColumn == "" {
-		c.KeyColumn = "biz_key"
-	}
-	if c.ValColumn == "" {
-		c.ValColumn = "metric_sum"
-	}
-	if c.InputGlob == "" {
-		c.InputGlob = "mr-out-*.txt"
-	}
-	if c.BatchSize <= 0 {
-		c.BatchSize = 2000
-	}
-}
+// Unified source/sink config aliases exposed by batch package.
+type SourceConfig = mysql_batch.SourceConfig
+type SinkConfig = mysql_batch.SinkConfig
+type RedisConnConfig = redis_batch.ConnConfig
+type RedisSourceConfig = redis_batch.SourceConfig
+type RedisSinkConfig = redis_batch.SinkConfig
 
 // PipelineConfig describes end-to-end MySQL -> MapReduce -> MySQL job.
 type PipelineConfig struct {
@@ -188,8 +121,8 @@ func (c *PipelineConfig) withDefaults() {
 	if c.Port == 0 {
 		c.Port = 10000
 	}
-	c.Source.withDefaults()
-	c.Sink.withDefaults()
+	c.Source.WithDefaults()
+	c.Sink.WithDefaults()
 }
 
 // PrepareConfig configures synthetic source table generation for benchmarking.
