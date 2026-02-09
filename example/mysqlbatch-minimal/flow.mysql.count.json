@@ -1,0 +1,49 @@
+{
+  "source": {
+    "type": "mysql",
+    "db": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "123456",
+      "database": "mysql"
+    },
+    "config": {
+      "table": "source_events",
+      "pkcolumn": "id",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric",
+      "where": "1=1",
+      "shards": 8,
+      "parallel": 4,
+      "outputdir": "txt/mysql_source",
+      "fileprefix": "chunk"
+    }
+  },
+  "transform": {
+    "type": "mapreduce",
+    "plugin_path": "cmd/mysql_count.so",
+    "reducers": 4,
+    "workers": 8,
+    "in_ram": false,
+    "port": 10010
+  },
+  "sink": {
+    "type": "mysql",
+    "db": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "123456",
+      "database": "mr_target"
+    },
+    "config": {
+      "targettable": "agg_count_results",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric_sum",
+      "inputglob": "mr-out-*.txt",
+      "replace": true,
+      "batchsize": 2000
+    }
+  }
+}
