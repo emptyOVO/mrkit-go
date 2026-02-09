@@ -15,9 +15,9 @@ const FlowVersionV1 = "v1"
 var builtinPluginBuildMu sync.Mutex
 
 var builtinTransformSources = map[string]string{
-	"count":  "mrapps/mysql_count.go",
-	"minmax": "mrapps/mysql_minmax.go",
-	"topn":   "mrapps/mysql_topn.go",
+	"count":  "mrapps/count.go",
+	"minmax": "mrapps/minmax.go",
+	"topn":   "mrapps/topn.go",
 }
 
 // ValidateFlowConfig validates v1 flow schema and required fields.

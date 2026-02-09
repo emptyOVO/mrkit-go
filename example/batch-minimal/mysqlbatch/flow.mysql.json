@@ -23,7 +23,7 @@
   },
   "transform": {
     "type": "mapreduce",
-    "plugin_path": "cmd/mysql_agg.so",
+    "plugin_path": "cmd/agg.so",
     "reducers": 4,
     "workers": 8,
     "in_ram": false,

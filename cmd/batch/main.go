@@ -39,7 +39,7 @@ func getenvBool(name string, d bool) bool {
 
 func main() {
 	mode := flag.String("mode", "pipeline", "pipeline|prepare|validate|benchmark")
-	plugin := flag.String("plugin", filepath.Join("cmd", "mysql_agg.so"), "plugin .so path")
+	plugin := flag.String("plugin", filepath.Join("cmd", "agg.so"), "plugin .so path")
 	configPath := flag.String("config", "", "Flow config file path (JSON)")
 	checkOnly := flag.Bool("check", false, "Validate flow config schema only (requires -config)")
 	flag.Parse()

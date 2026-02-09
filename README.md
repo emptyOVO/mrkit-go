@@ -279,7 +279,7 @@ func main() {
 			TargetTable: "agg_results",
 			Replace:     true,
 		},
-		PluginPath: "cmd/mysql_agg.so",
+		PluginPath: "cmd/agg.so",
 		Reducers:   8,
 		Workers:    16,
 		InRAM:      false,
@@ -302,7 +302,7 @@ go run ./cmd/batch -mode prepare
 MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 MYSQL_SOURCE_DB=mysql MYSQL_TARGET_DB=mr_target \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
-go run ./cmd/batch -mode pipeline -plugin cmd/mysql_agg.so
+go run ./cmd/batch -mode pipeline -plugin cmd/agg.so
 
 # 3) validate correctness
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
@@ -406,7 +406,7 @@ Plugin mode is still available (advanced use case):
   "version": "v1",
   "transform": {
     "type": "mapreduce",
-    "plugin_path": "cmd/mysql_agg.so",
+    "plugin_path": "cmd/agg.so",
     "reducers": 8,
     "workers": 16,
     "in_ram": false,
@@ -431,7 +431,7 @@ Minimal external integration example:
 ```bash
 MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results PREPARE_DATA=true ROWS=10000000 \
-go run ./cmd/batch -mode benchmark -plugin cmd/mysql_agg.so
+go run ./cmd/batch -mode benchmark -plugin cmd/agg.so
 ```
 
 ## Contributions

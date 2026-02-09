@@ -41,7 +41,7 @@ If you need custom aggregation logic, use plugin mode:
 
 ```bash
 cd /path/to/mrkit-go
-go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
+go build -buildmode=plugin -o cmd/agg.so ./mrapps/agg.go
 go run ./cmd/batch -check -config example/batch-minimal/mysqlbatch/flow.mysql.json
 ```
 
@@ -89,7 +89,7 @@ go run ./cmd/batch -mode benchmark -config example/batch-minimal/redisbatch/flow
 What it does:
 
 1. Read source rows from MySQL by primary-key range shards.
-2. Run MapReduce in-process using `cmd/mysql_agg.so`.
+2. Run MapReduce in-process using `cmd/agg.so`.
 3. Batch upsert aggregated result into target DB/table.
 
 ## 6) Validate result

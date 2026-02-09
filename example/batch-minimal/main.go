@@ -65,7 +65,7 @@ func main() {
 			TargetTable: getenvDefault("TARGET_TABLE", "agg_results_xdb"),
 			Replace:     true,
 		},
-		PluginPath: "../../cmd/mysql_agg.so",
+		PluginPath: "../../cmd/agg.so",
 		Reducers:   4,
 		Workers:    8,
 		InRAM:      false,
