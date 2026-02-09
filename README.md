@@ -239,6 +239,88 @@ Config sections:
 - `transform`: MapReduce plugin + reducers/workers runtime config
 - `sink`: MySQL sink connection + import config
 
+Production template (source/sink split + concurrency):
+
+```json
+{
+  "source": {
+    "type": "mysql",
+    "db": {
+      "host": "10.20.1.11",
+      "port": 3306,
+      "user": "etl_reader",
+      "password": "REPLACE_ME",
+      "database": "biz_source",
+      "params": {
+        "readTimeout": "60s",
+        "writeTimeout": "60s",
+        "timeout": "10s",
+        "loc": "Local",
+        "multiStatements": "false"
+      }
+    },
+    "config": {
+      "table": "order_events",
+      "pkcolumn": "id",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric",
+      "where": "event_time >= '2026-02-01 00:00:00' AND event_time < '2026-02-02 00:00:00'",
+      "shards": 64,
+      "parallel": 16,
+      "outputdir": "txt/mysql_source",
+      "fileprefix": "chunk"
+    }
+  },
+  "transform": {
+    "type": "mapreduce",
+    "plugin_path": "cmd/mysql_agg.so",
+    "reducers": 16,
+    "workers": 32,
+    "in_ram": false,
+    "port": 18000
+  },
+  "sink": {
+    "type": "mysql",
+    "db": {
+      "host": "10.20.2.15",
+      "port": 3306,
+      "user": "etl_writer",
+      "password": "REPLACE_ME",
+      "database": "biz_dw",
+      "params": {
+        "readTimeout": "60s",
+        "writeTimeout": "60s",
+        "timeout": "10s",
+        "loc": "Local",
+        "multiStatements": "false"
+      }
+    },
+    "config": {
+      "targettable": "order_metric_daily",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric_sum",
+      "inputglob": "mr-out-*.txt",
+      "replace": true,
+      "batchsize": 5000
+    }
+  }
+}
+```
+
+Run:
+
+```bash
+go build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
+go run ./cmd/mysqlbatch -config /absolute/path/flow.prod.json
+```
+
+Failure rerun suggestions:
+- Keep `where` windowed (time range or batch id) so each run has deterministic input.
+- If `sink.config.replace=true`, rerunning the same batch is idempotent (overwrite behavior).
+- If you need history accumulation, use `replace=false` and ensure batch filters avoid duplicates.
+- Before rerun, clean local artifacts: `mr-out-*.txt`, `txt/mysql_source/chunk-*.txt`.
+- Start with moderate parallelism: `shards=4x~8x reducers`, `workers=2x reducers`, then tune by DB load.
+
 Minimal external integration example:
 - `example/mysqlbatch-minimal/go.mod`
 - `example/mysqlbatch-minimal/main.go`
