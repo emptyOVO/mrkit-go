@@ -3,6 +3,7 @@ package mapreduce
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -166,8 +167,15 @@ func masterPort(masterAddr string) int {
 	if raw == "" {
 		return 10000
 	}
-	parts := strings.Split(raw, ":")
-	last := strings.TrimSpace(parts[len(parts)-1])
+	if strings.HasPrefix(raw, ":") {
+		raw = "127.0.0.1" + raw
+	}
+	_, portStr, err := net.SplitHostPort(raw)
+	if err != nil {
+		parts := strings.Split(raw, ":")
+		portStr = strings.TrimSpace(parts[len(parts)-1])
+	}
+	last := strings.TrimSpace(portStr)
 	if p, err := strconv.Atoi(last); err == nil && p > 0 {
 		return p
 	}
