@@ -39,10 +39,13 @@ func StartWorker(pluginFile string, nReduce int, addr string, storeInRAM bool) {
 	log.Info("Worker load plugin finish")
 
 	// Register itself
-	id := workerStruct.Client.WorkerRegister(&rpc.WorkerInfo{
+	id, err := workerStruct.Client.WorkerRegister(&rpc.WorkerInfo{
 		Uuid: workerStruct.UUID,
 		Ip:   addr,
 	})
+	if err != nil {
+		log.Panic(err)
+	}
 	workerStruct.setID(id)
 	log.Info("Worker register itself finish")
 

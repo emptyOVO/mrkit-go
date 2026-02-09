@@ -3,17 +3,19 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type RpcClient interface {
 	//Connect()
-	WorkerRegister(w *rpc.WorkerInfo) int
+	WorkerRegister(w *rpc.WorkerInfo) (int, error)
 	UpdateIMDInfo(u *rpc.IMDInfo) bool
 	GetIMDData(ip string, filename string) []KV
 }
@@ -31,30 +33,42 @@ func Connect(ip string) (*grpc.ClientConn, rpc.MasterClient) {
 	return conn, rpc.NewMasterClient(conn)
 }
 
-func (client *masterClient) WorkerRegister(w *rpc.WorkerInfo) int {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	log.Trace("With Time out")
-	defer cancel()
-
-	log.Trace("Start RPC call")
-	r, err := client.master.WorkerRegister(ctx, w)
-	log.Trace("End RPC call")
-	if err != nil {
-		respErr, ok := status.FromError(err)
-		if ok {
-			//actual error from gRPC
-			//todo: we can improve error handling by using grpc statusCodes()
-			log.Panic(respErr.Message())
-		} else {
-			log.Panic(err)
+func (client *masterClient) WorkerRegister(w *rpc.WorkerInfo) (int, error) {
+	const (
+		maxAttempts = 40
+		backoff     = 200 * time.Millisecond
+	)
+	var lastErr error
+	for i := 0; i < maxAttempts; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		log.Trace("With Time out")
+		log.Trace("Start RPC call")
+		r, err := client.master.WorkerRegister(ctx, w)
+		cancel()
+		log.Trace("End RPC call")
+		if err != nil {
+			if respErr, ok := status.FromError(err); ok {
+				lastErr = fmt.Errorf("register worker rpc failed: %s", respErr.Message())
+				if respErr.Code() != codes.Unavailable && respErr.Code() != codes.DeadlineExceeded {
+					return 0, lastErr
+				}
+			} else {
+				lastErr = err
+			}
+			time.Sleep(backoff)
+			continue
 		}
+		if !r.Result {
+			lastErr = fmt.Errorf("register worker rpc returned false")
+			time.Sleep(backoff)
+			continue
+		}
+		return int(r.Id), nil
 	}
-
-	if !r.Result {
-		panic("Register Error")
+	if lastErr == nil {
+		lastErr = fmt.Errorf("register worker rpc failed after retries")
 	}
-
-	return int(r.Id)
+	return 0, lastErr
 }
 
 func (client *masterClient) UpdateIMDInfo(u *rpc.IMDInfo) bool {

@@ -11,6 +11,9 @@ export GOCACHE="${GOCACHE:-$ROOT/.cache/go-build}"
 export GOMODCACHE="${GOMODCACHE:-$ROOT/.cache/go-mod}"
 export GOTMPDIR="${GOTMPDIR:-$ROOT/.cache/go-tmp}"
 
+# Prevent stale plugin ABI mismatches after runtime/package changes.
+rm -f -- .cache/batch-builtins/*.so .cache/mysqlbatch-builtins/*.so 2>/dev/null || true
+
 run_flow() {
   local name="$1"
   local cfg="$2"

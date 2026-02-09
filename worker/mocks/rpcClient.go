@@ -20,9 +20,9 @@ func Connect() (*grpc.ClientConn, rpc.MasterClient) {
 	return &conn, rpc.NewMasterClient(&conn)
 }
 
-func (client *MasterClient) WorkerRegister(w *rpc.WorkerInfo) int {
+func (client *MasterClient) WorkerRegister(w *rpc.WorkerInfo) (int, error) {
 	Request = w
-	return Result.(int)
+	return Result.(int), nil
 }
 
 func (client *MasterClient) UpdateIMDInfo(u *rpc.IMDInfo) bool {
