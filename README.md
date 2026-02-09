@@ -1,20 +1,21 @@
-# MapReduce
+# mrkit-go
 
 [<img alt="github" src="https://img.shields.io/badge/github-emptyOVO%2Fmrkit--go-blue?style=for-the-badge&logo=appveyor" height="20">](https://github.com/emptyOVO/mrkit-go)
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/emptyOVO/mrkit-go/go.yml?style=for-the-badge" height="20">](https://github.com/emptyOVO/mrkit-go/actions/workflows/go.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/emptyOVO/mrkit-go.svg)](https://pkg.go.dev/github.com/emptyOVO/mrkit-go)
 
-This is an easy-to-use Map Reduce Go framework inspired by [2021 6.824 lab1](http://nil.csail.mit.edu/6.824/2021/labs/lab-mr.html).
+`mrkit-go` is an easy-to-use MapReduce toolkit in Go.
+It is based on an existing Go MapReduce implementation and repackaged as a more plug-and-play library/runner for local use.
 
 ![mapReduce](https://github.com/kiarash8112/MapReduce/assets/133909368/03c6b149-213c-4906-91b7-a05c4f083c9e)
 
 
 
-## Feature
-- Multiple workers goroutine in a program on a single machine.
-- Multiple workers process in separate program on a single machine.
+## Features
+- Multiple worker goroutines in one process on a single machine.
+- Multiple worker processes on a single machine.
 - Fault tolerance.
-- Easy to parallel your code with just Map and Reduce function. 
+- Easy to parallel your code with Map and Reduce functions.
 
 
 ## Library Usage - Your own map and reduce function
@@ -124,7 +125,7 @@ go run -race cmd/worker.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 8
 
 ## Help
 ```
-MapReudce is an easy-to-use Map Reduce Go parallel-computing framework inspired by 2021 6.824 lab1.
+MapReduce is an easy-to-use MapReduce Go parallel-computing toolkit inspired by 2021 6.824 lab1.
 It supports multiple workers threads on a single machine and multiple processes on a single machine right now.
 
 Usage:
@@ -149,6 +150,7 @@ The framework now provides a **Go library** for MySQL source/sink and benchmark 
 - source read: primary-key range sharding (`id` range split)
 - sink write: batch stage insert + grouped upsert
 - end-to-end: MySQL -> MapReduce -> MySQL in one Go call
+- supports cross-database pipeline: source DB and target DB can be configured separately
 
 Reducer partitioning is fixed to `hash(key) % nReduce`.
 
@@ -171,6 +173,20 @@ func main() {
 			User:     "root",
 			Password: "123456",
 			Database: "mysql",
+		},
+		SourceDB: mysqlbatch.DBConfig{
+			Host:     "127.0.0.1",
+			Port:     3306,
+			User:     "root",
+			Password: "123456",
+			Database: "mysql",
+		},
+		SinkDB: mysqlbatch.DBConfig{
+			Host:     "127.0.0.1",
+			Port:     3306,
+			User:     "root",
+			Password: "123456",
+			Database: "mr_target",
 		},
 		Source: mysqlbatch.SourceConfig{
 			Table: "source_events",
@@ -198,8 +214,9 @@ MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results ROWS=10000000 \
 go run ./cmd/mysqlbatch -mode prepare
 
-# 2) run end-to-end pipeline
-MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
+# 2) run end-to-end pipeline (source mysql -> target mr_target)
+MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 MYSQL_DB=mysql \
+MYSQL_SOURCE_DB=mysql MYSQL_TARGET_DB=mr_target \
 SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
 go run ./cmd/mysqlbatch -mode pipeline -plugin cmd/mysql_agg.so
 
