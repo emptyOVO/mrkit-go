@@ -3,6 +3,7 @@ package mysqlbatch
 import (
 	"context"
 	"fmt"
+	"os"
 )
 
 // FlowConfig describes a SeaTunnel-like source/transform/sink pipeline.
@@ -23,12 +24,13 @@ type FlowSourceConfig struct {
 }
 
 type FlowTransformConfig struct {
-	Type       string `json:"type"`
-	PluginPath string `json:"plugin_path"`
-	Reducers   int    `json:"reducers"`
-	Workers    int    `json:"workers"`
-	InRAM      bool   `json:"in_ram"`
-	Port       int    `json:"port"`
+	Type       string            `json:"type"`
+	PluginPath string            `json:"plugin_path"`
+	Reducers   int               `json:"reducers"`
+	Workers    int               `json:"workers"`
+	InRAM      bool              `json:"in_ram"`
+	Port       int               `json:"port"`
+	Params     map[string]string `json:"params"`
 }
 
 type FlowSinkConfig struct {
@@ -65,6 +67,29 @@ func RunFlow(ctx context.Context, cfg FlowConfig) error {
 	if cfg.Transform.PluginPath == "" {
 		return fmt.Errorf("transform.plugin_path is required")
 	}
+
+	// Apply transform params as environment variables during this flow run.
+	restore := make(map[string]*string, len(cfg.Transform.Params))
+	for k, v := range cfg.Transform.Params {
+		if old, ok := os.LookupEnv(k); ok {
+			oldCopy := old
+			restore[k] = &oldCopy
+		} else {
+			restore[k] = nil
+		}
+		if err := os.Setenv(k, v); err != nil {
+			return err
+		}
+	}
+	defer func() {
+		for k, old := range restore {
+			if old == nil {
+				_ = os.Unsetenv(k)
+			} else {
+				_ = os.Setenv(k, *old)
+			}
+		}
+	}()
 
 	return RunPipeline(ctx, PipelineConfig{
 		SourceDB:   cfg.Source.DB,
