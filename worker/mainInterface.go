@@ -20,12 +20,19 @@ func Init(masterIP string) {
 
 func StartWorker(pluginFile string, nReduce int, addr string, storeInRAM bool) {
 	// start gRPC server
-	listener, _ := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Panic(err)
+	}
 	wr := newWorker(nReduce, storeInRAM)
 	workerStruct := wr.(*Worker)
 	baseServer := grpc.NewServer()
 	rpc.RegisterWorkerServer(baseServer, wr)
-	go baseServer.Serve(listener)
+	go func() {
+		if err := baseServer.Serve(listener); err != nil {
+			log.Error(err)
+		}
+	}()
 	log.Info("Worker gRPC server start")
 
 	workerStruct.Mapf, workerStruct.Reducef = loadPlugin(pluginFile)

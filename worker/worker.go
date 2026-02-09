@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"os"
+	"path/filepath"
 	"sort"
 	"sync"
 
@@ -181,11 +182,18 @@ func writeIMDToLocalFileParallel(taskId int, kvs []KV, uuid string, inRAM bool, 
 
 	var fname string
 	if inRAM {
-		fname = fmt.Sprintf("/dev/shm/imd-%v-%v.txt", uuid, taskId)
+		baseDir := "/dev/shm"
+		if info, err := os.Stat(baseDir); err != nil || !info.IsDir() {
+			baseDir = os.TempDir()
+		}
+		fname = filepath.Join(baseDir, fmt.Sprintf("imd-%v-%v.txt", uuid, taskId))
 	} else {
 		fname = fmt.Sprintf("output/imd-%v-%v.txt", uuid, taskId)
 	}
 	output <- fname
+	if err := os.MkdirAll(filepath.Dir(fname), 0o755); err != nil {
+		panic(err)
+	}
 	file, err := os.Create(fname)
 	if err != nil {
 		panic(err)
