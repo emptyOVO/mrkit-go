@@ -1,0 +1,44 @@
+{
+  "version": "v1",
+  "source": {
+    "type": "redis",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0
+    },
+    "redis_config": {
+      "key_pattern": "event:*",
+      "key_field": "biz_key",
+      "val_field": "metric",
+      "scan_count": 500,
+      "outputdir": "txt/redis_source",
+      "fileprefix": "chunk"
+    }
+  },
+  "transform": {
+    "type": "builtin",
+    "builtin": "count",
+    "reducers": 4,
+    "workers": 8,
+    "in_ram": false,
+    "port": 10113
+  },
+  "sink": {
+    "type": "redis",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 2
+    },
+    "redis_config": {
+      "key_prefix": "mr:rr:count:",
+      "value_field": "metric_sum",
+      "inputglob": "mr-out-*.txt",
+      "replace": true
+    }
+  }
+}
+

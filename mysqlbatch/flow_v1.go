@@ -22,30 +22,46 @@ var builtinTransformSources = map[string]string{
 
 // ValidateFlowConfig validates v1 flow schema and required fields.
 func ValidateFlowConfig(cfg FlowConfig) error {
+	cfg.withDefaults()
+
 	if strings.TrimSpace(cfg.Version) != FlowVersionV1 {
 		return fmt.Errorf("unsupported version: %q (expected %q)", cfg.Version, FlowVersionV1)
 	}
-	if cfg.Source.Type != "mysql" {
+	if cfg.Source.Type != "mysql" && cfg.Source.Type != "redis" {
 		return fmt.Errorf("unsupported source.type: %s", cfg.Source.Type)
 	}
-	if cfg.Sink.Type != "mysql" {
+	if cfg.Sink.Type != "mysql" && cfg.Sink.Type != "redis" {
 		return fmt.Errorf("unsupported sink.type: %s", cfg.Sink.Type)
 	}
 	if cfg.Transform.Type != "mapreduce" && cfg.Transform.Type != "builtin" {
 		return fmt.Errorf("unsupported transform.type: %s", cfg.Transform.Type)
 	}
 
-	if cfg.Source.DB.User == "" || cfg.Source.DB.Database == "" {
-		return fmt.Errorf("source.db.user and source.db.database are required")
+	switch cfg.Source.Type {
+	case "mysql":
+		if cfg.Source.DB.User == "" || cfg.Source.DB.Database == "" {
+			return fmt.Errorf("source.db.user and source.db.database are required for mysql source")
+		}
+		if strings.TrimSpace(cfg.Source.Config.Table) == "" {
+			return fmt.Errorf("source.config.table is required for mysql source")
+		}
+	case "redis":
+		if strings.TrimSpace(cfg.Source.RedisConfig.KeyPattern) == "" {
+			return fmt.Errorf("source.redis_config.key_pattern is required for redis source")
+		}
 	}
-	if cfg.Sink.DB.User == "" || cfg.Sink.DB.Database == "" {
-		return fmt.Errorf("sink.db.user and sink.db.database are required")
-	}
-	if strings.TrimSpace(cfg.Source.Config.Table) == "" {
-		return fmt.Errorf("source.config.table is required")
-	}
-	if strings.TrimSpace(cfg.Sink.Config.TargetTable) == "" {
-		return fmt.Errorf("sink.config.targettable is required")
+	switch cfg.Sink.Type {
+	case "mysql":
+		if cfg.Sink.DB.User == "" || cfg.Sink.DB.Database == "" {
+			return fmt.Errorf("sink.db.user and sink.db.database are required for mysql sink")
+		}
+		if strings.TrimSpace(cfg.Sink.Config.TargetTable) == "" {
+			return fmt.Errorf("sink.config.targettable is required for mysql sink")
+		}
+	case "redis":
+		if strings.TrimSpace(cfg.Sink.RedisConfig.KeyPrefix) == "" {
+			return fmt.Errorf("sink.redis_config.key_prefix is required for redis sink")
+		}
 	}
 
 	switch cfg.Transform.Type {

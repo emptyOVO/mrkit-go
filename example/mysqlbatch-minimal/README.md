@@ -13,6 +13,9 @@ This example includes:
 - `go.mod`
 - `main.go`
 - `flow.mysql.json`
+- `flow.mysql_to_redis.count.json`
+- `flow.redis_to_mysql.count.json`
+- `flow.redis_to_redis.count.json`
 
 For local development in this repository, `go.mod` uses:
 
@@ -65,6 +68,15 @@ Before running pipeline, ensure target database in `flow.mysql.json` exists (for
 ```bash
 cd /path/to/mrkit-go
 go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
+
+# mysql -> redis
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql_to_redis.count.json
+
+# redis -> mysql
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.redis_to_mysql.count.json
+
+# redis -> redis
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.redis_to_redis.count.json
 ```
 
 What it does:

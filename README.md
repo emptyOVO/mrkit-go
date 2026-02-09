@@ -54,6 +54,19 @@ go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.minmax.jso
 go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.topn.json
 ```
 
+Cross-DB examples:
+
+```bash
+# mysql -> redis
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql_to_redis.count.json
+
+# redis -> mysql
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.redis_to_mysql.count.json
+
+# redis -> redis
+go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.redis_to_redis.count.json
+```
+
 ### 4) Verify success
 
 Expected log includes:
@@ -302,7 +315,7 @@ go run ./cmd/mysqlbatch -config example/mysqlbatch-minimal/flow.mysql.json
 Config sections:
 - `source`: MySQL source connection + extract config
 - `transform`: built-in transform (`count` / `minmax` / `topN`) or plugin mode
-- `sink`: MySQL sink connection + import config
+- `sink`: MySQL or Redis sink config
 
 Production template (source/sink split + concurrency):
 
