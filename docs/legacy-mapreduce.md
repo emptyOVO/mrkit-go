@@ -4,7 +4,7 @@ These are legacy/advanced entrypoints. New users should prefer `./cmd/batch` wit
 
 ## Single Process (Master + Worker Goroutines)
 
-`main.go`:
+`cmd/legacy/main/main.go`:
 
 ```go
 package main
@@ -22,12 +22,12 @@ Run:
 
 ```bash
 go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go
-go run -race ./cmd/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 4 --port 11320 -m=false
+go run -race ./cmd/legacy/main/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 4 --port 11320 -m=false
 ```
 
 ## Multi Process (Master + Workers)
 
-`master.go`:
+`cmd/legacy/master/main.go`:
 
 ```go
 package main
@@ -41,7 +41,7 @@ func main() {
 }
 ```
 
-`worker.go`:
+`cmd/legacy/worker/main.go`:
 
 ```go
 package main
@@ -59,10 +59,10 @@ Run:
 
 ```bash
 go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go
-go run -race ./cmd/master.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
+go run -race ./cmd/legacy/master/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
 sleep 1
-go run -race ./cmd/worker.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 1 --port 11340 -m=false &
-go run -race ./cmd/worker.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
+go run -race ./cmd/legacy/worker/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 1 --port 11340 -m=false &
+go run -race ./cmd/legacy/worker/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
 ```
 
 Notes:

@@ -76,7 +76,7 @@ For built-in transforms, no prebuilt `.so` is required.
 - Built-in transforms and plugin mode: [`docs/transforms.md`](docs/transforms.md)
 - Go library usage (`batch.RunPipeline`): [`docs/library-usage.md`](docs/library-usage.md)
 - Benchmark usage: [`docs/benchmark.md`](docs/benchmark.md)
-- Legacy MapReduce entrypoints (`cmd/main.go`, `cmd/master.go`, `cmd/worker.go`): [`docs/legacy-mapreduce.md`](docs/legacy-mapreduce.md)
+- Legacy MapReduce entrypoints (`cmd/legacy/main/main.go`, `cmd/legacy/master/main.go`, `cmd/legacy/worker/main.go`): [`docs/legacy-mapreduce.md`](docs/legacy-mapreduce.md)
 - Minimal end-to-end examples: [`example/batch-minimal/README.md`](example/batch-minimal/README.md)
 
 ## Contributions
