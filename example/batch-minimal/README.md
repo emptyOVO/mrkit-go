@@ -69,11 +69,15 @@ Before running pipeline, ensure target database in `mysqlbatch/flow.mysql.json` 
 ## 5) Run by config file (recommended)
 
 ```bash
-cd /path/to/mrkit-go
 go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.json
 
 # mysql -> redis
 go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
+
+# prepare redis source keys for redis->* examples (db0/event:*)
+sed "s/\"db\": 1/\"db\": 0/; s/\"key_prefix\": \"mr:count:\"/\"key_prefix\": \"event:\"/; s/\"value_field\": \"metric_sum\"/\"value_field\": \"metric\"/" \
+  example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json > /tmp/flow.mysql_to_redis.seed_event.json
+go run ./cmd/batch -config /tmp/flow.mysql_to_redis.seed_event.json
 
 # redis -> mysql
 go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_mysql.count.json
@@ -94,18 +98,25 @@ What it does:
 
 ## 6) Validate result
 
+Use direct sink checks after `flow done`.
+
+For MySQL sink flows (`flow.mysql.json`, `flow.mysql.count.json`, `flow.redis_to_mysql.count.json`):
+
+```sql
+SELECT COUNT(*) AS rows_written FROM mr_target.agg_results;
+SELECT * FROM mr_target.agg_results ORDER BY 1 LIMIT 10;
+```
+
+For Redis sink flows (`flow.mysql_to_redis.count.json`, `flow.redis_to_redis.count.json`), check by key pattern:
+
 ```bash
-cd /path/to/mrkit-go
-MYSQL_DB=mysql SOURCE_TABLE=source_events \
-TARGET_TABLE=agg_results \
-go run ./cmd/batch -mode validate
+go run ./cmd/batch -check -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
+go run ./cmd/batch -check -config example/batch-minimal/redisbatch/flow.redis_to_redis.count.json
 ```
 
-If everything is correct, output is:
-
-```text
-validate pass
-```
+Advanced path:
+- `go run ./cmd/batch -mode validate` remains available for dedicated default-pipeline checks,
+- but it assumes a matching source/target state and is not part of this minimal cross-flow walkthrough.
 
 ## Troubleshooting
 
