@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-
-	mapreduce "github.com/emptyOVO/mrkit-go"
 )
 
 // RunPipeline executes MySQL source -> MapReduce -> MySQL sink in-process.
@@ -59,8 +56,16 @@ func RunPipeline(ctx context.Context, cfg PipelineConfig) error {
 		}
 	}
 
-	mapreduce.MasterIP = ":" + strconv.Itoa(cfg.Port)
-	mapreduce.StartSingleMachineJob(files, cfg.PluginPath, cfg.Reducers, cfg.Workers, cfg.InRAM)
+	if err := RunMapReduce(ctx, MapReduceRunConfig{
+		Files:      files,
+		PluginPath: cfg.PluginPath,
+		Reducers:   cfg.Reducers,
+		Workers:    cfg.Workers,
+		InRAM:      cfg.InRAM,
+		Port:       cfg.Port,
+	}); err != nil {
+		return err
+	}
 
 	return ImportReduceOutputs(ctx, sinkDB, cfg.Sink)
 }

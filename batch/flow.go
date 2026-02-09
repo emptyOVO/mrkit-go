@@ -4,10 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
-	mapreduce "github.com/emptyOVO/mrkit-go"
 	"github.com/emptyOVO/mrkit-go/batch/mysql_batch"
 	"github.com/emptyOVO/mrkit-go/batch/redis_batch"
 )
@@ -146,7 +144,9 @@ func runFlowInternal(ctx context.Context, cfg FlowConfig, collectDur bool) (Flow
 		cleanupReduceOutputs(inputGlob)
 
 		sTransform := time.Now()
-		runMapReduce(files, pluginPath, cfg.Transform)
+		if err := runMapReduce(ctx, files, pluginPath, cfg.Transform); err != nil {
+			return err
+		}
 		if collectDur {
 			bench.TransformDuration = time.Since(sTransform)
 		}
@@ -217,7 +217,13 @@ func cleanupReduceOutputs(inputGlob string) {
 	}
 }
 
-func runMapReduce(files []string, pluginPath string, tf FlowTransformConfig) {
-	mapreduce.MasterIP = ":" + strconv.Itoa(tf.Port)
-	mapreduce.StartSingleMachineJob(files, pluginPath, tf.Reducers, tf.Workers, tf.InRAM)
+func runMapReduce(ctx context.Context, files []string, pluginPath string, tf FlowTransformConfig) error {
+	return RunMapReduce(ctx, MapReduceRunConfig{
+		Files:      files,
+		PluginPath: pluginPath,
+		Reducers:   tf.Reducers,
+		Workers:    tf.Workers,
+		InRAM:      tf.InRAM,
+		Port:       tf.Port,
+	})
 }
