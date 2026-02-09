@@ -98,18 +98,18 @@ go run ./cmd/batch -config /absolute/path/flow.prod.json
 ## Built-in Cross-DB Examples
 
 - mysql -> mysql:
-  - `example/batch-minimal/mysqlbatch/flow.mysql.count.json`
+  - `example/batch-minimal/flows/smoke/flow.mysql.count.json`
 - mysql -> redis:
-  - `example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json`
+  - `example/batch-minimal/flows/cross-db/flow.mysql_to_redis.count.json`
 - redis -> mysql:
-  - `example/batch-minimal/redisbatch/flow.redis_to_mysql.count.json`
+  - `example/batch-minimal/flows/cross-db/flow.redis_to_mysql.count.json`
 - redis -> redis:
-  - `example/batch-minimal/redisbatch/flow.redis_to_redis.count.json`
+  - `example/batch-minimal/flows/cross-db/flow.redis_to_redis.count.json`
 
 For `redis -> *` examples, preload `db0/event:*` source keys first:
 
 ```bash
-go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.seed.redis_source_event.json
+go run ./cmd/batch -config example/batch-minimal/flows/seed/flow.seed.redis_source_event.json
 ```
 
 ## Rerun Suggestions

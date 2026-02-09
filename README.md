@@ -25,7 +25,7 @@ go run ./cmd/batch -mode prepare
 ### 2) Validate config schema
 
 ```bash
-go run ./cmd/batch -check -config example/batch-minimal/mysqlbatch/flow.mysql.count.json
+go run ./cmd/batch -check -config example/batch-minimal/flows/smoke/flow.mysql.count.json
 ```
 
 Expected output:
@@ -37,23 +37,23 @@ config check pass
 ### 3) Run a flow
 
 ```bash
-go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.count.json
+go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.json
 ```
 
 Cross-DB examples:
 
 ```bash
 # mysql -> redis
-go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
+go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.mysql_to_redis.count.json
 
 # prepare redis source keys for redis->* examples (db0/event:*)
-go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.seed.redis_source_event.json
+go run ./cmd/batch -config example/batch-minimal/flows/seed/flow.seed.redis_source_event.json
 
 # redis -> mysql
-go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_mysql.count.json
+go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.redis_to_mysql.count.json
 
 # redis -> redis
-go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_redis.count.json
+go run ./cmd/batch -config example/batch-minimal/flows/cross-db/flow.redis_to_redis.count.json
 ```
 
 Expected log includes:

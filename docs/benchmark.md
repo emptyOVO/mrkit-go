@@ -3,8 +3,8 @@
 Run benchmark in config-driven mode:
 
 ```bash
-go run ./cmd/batch -mode benchmark -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
-go run ./cmd/batch -mode benchmark -config example/batch-minimal/redisbatch/flow.redis_to_redis.count.json
+go run ./cmd/batch -mode benchmark -config example/batch-minimal/flows/benchmark/flow.benchmark.mysql_to_redis.count.json
+go run ./cmd/batch -mode benchmark -config example/batch-minimal/flows/benchmark/flow.benchmark.redis_to_redis.count.json
 ```
 
 Typical output:
