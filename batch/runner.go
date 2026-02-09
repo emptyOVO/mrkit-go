@@ -1,6 +1,9 @@
 package batch
 
-import "context"
+import (
+	"context"
+	"sync"
+)
 
 // MapReduceRunConfig describes a runtime invocation for a map-reduce job.
 type MapReduceRunConfig struct {
@@ -17,18 +20,25 @@ type Runner interface {
 	Run(ctx context.Context, cfg MapReduceRunConfig) error
 }
 
-var defaultRunner Runner = LegacyRunner{}
+var (
+	defaultRunner   Runner = LegacyRunner{}
+	defaultRunnerMu sync.RWMutex
+)
 
 // SetDefaultRunner overrides the process-wide runtime strategy.
 func SetDefaultRunner(r Runner) {
 	if r == nil {
 		return
 	}
+	defaultRunnerMu.Lock()
+	defer defaultRunnerMu.Unlock()
 	defaultRunner = r
 }
 
 // DefaultRunner returns the current process-wide runtime strategy.
 func DefaultRunner() Runner {
+	defaultRunnerMu.RLock()
+	defer defaultRunnerMu.RUnlock()
 	return defaultRunner
 }
 
