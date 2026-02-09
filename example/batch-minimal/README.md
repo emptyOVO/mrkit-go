@@ -17,6 +17,7 @@ This example includes:
 - `mysqlbatch/flow.mysql.minmax.json`
 - `mysqlbatch/flow.mysql.topn.json`
 - `mysqlbatch/flow.mysql_to_redis.count.json`
+- `redisbatch/flow.seed.redis_source_event.json`
 - `redisbatch/flow.redis_to_mysql.count.json`
 - `redisbatch/flow.redis_to_redis.count.json`
 
@@ -75,9 +76,7 @@ go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql.json
 go run ./cmd/batch -config example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json
 
 # prepare redis source keys for redis->* examples (db0/event:*)
-sed "s/\"db\": 1/\"db\": 0/; s/\"key_prefix\": \"mr:count:\"/\"key_prefix\": \"event:\"/; s/\"value_field\": \"metric_sum\"/\"value_field\": \"metric\"/" \
-  example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json > /tmp/flow.mysql_to_redis.seed_event.json
-go run ./cmd/batch -config /tmp/flow.mysql_to_redis.seed_event.json
+go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.seed.redis_source_event.json
 
 # redis -> mysql
 go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.redis_to_mysql.count.json

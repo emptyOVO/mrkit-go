@@ -109,9 +109,7 @@ go run ./cmd/batch -config /absolute/path/flow.prod.json
 For `redis -> *` examples, preload `db0/event:*` source keys first:
 
 ```bash
-sed "s/\"db\": 1/\"db\": 0/; s/\"key_prefix\": \"mr:count:\"/\"key_prefix\": \"event:\"/; s/\"value_field\": \"metric_sum\"/\"value_field\": \"metric\"/" \
-  example/batch-minimal/mysqlbatch/flow.mysql_to_redis.count.json > /tmp/flow.mysql_to_redis.seed_event.json
-go run ./cmd/batch -config /tmp/flow.mysql_to_redis.seed_event.json
+go run ./cmd/batch -config example/batch-minimal/redisbatch/flow.seed.redis_source_event.json
 ```
 
 ## Rerun Suggestions

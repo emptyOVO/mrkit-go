@@ -1,0 +1,47 @@
+{
+  "version": "v1",
+  "source": {
+    "type": "mysql",
+    "db": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "123456",
+      "database": "mysql"
+    },
+    "config": {
+      "table": "source_events",
+      "pkcolumn": "id",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric",
+      "where": "1=1",
+      "shards": 8,
+      "parallel": 4,
+      "outputdir": "txt/mysql_source",
+      "fileprefix": "chunk"
+    }
+  },
+  "transform": {
+    "type": "builtin",
+    "builtin": "count",
+    "reducers": 4,
+    "workers": 8,
+    "in_ram": false,
+    "port": 10114
+  },
+  "sink": {
+    "type": "redis",
+    "redis": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "",
+      "db": 0
+    },
+    "redis_config": {
+      "key_prefix": "event:",
+      "value_field": "metric",
+      "inputglob": "mr-out-*.txt",
+      "replace": true
+    }
+  }
+}
