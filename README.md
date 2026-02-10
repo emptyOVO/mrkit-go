@@ -4,7 +4,9 @@
 [<img alt="build status" src="https://img.shields.io/github/actions/workflow/status/emptyOVO/mrkit-go/go.yml?style=for-the-badge" height="20">](https://github.com/emptyOVO/mrkit-go/actions/workflows/go.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/emptyOVO/mrkit-go.svg)](https://pkg.go.dev/github.com/emptyOVO/mrkit-go)
 
-`mrkit-go` is a MapReduce toolkit in Go with a config-driven batch runner.
+`mrkit-go` is a lightweight MapReduce framework implemented in Go, ready to use out of the box, with config-driven batch flows for common big-data databases.
+
+Compared with Hadoop-style MapReduce stacks, `mrkit-go` emphasizes simpler deployment, lower operational overhead on Go service hosts, and faster iteration for small-to-medium batch pipelines. The project is still actively evolving.
 
 Primary path for new users:
 - define `source / transform / sink` in JSON
