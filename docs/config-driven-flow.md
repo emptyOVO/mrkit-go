@@ -92,7 +92,7 @@ go run ./cmd/batch -config /path/to/flow.json
 Run:
 
 ```bash
-go run ./cmd/batch -config /absolute/path/flow.prod.json
+go run ./cmd/batch -config ./configs/flow.prod.json
 ```
 
 ## Built-in Cross-DB Examples

@@ -36,6 +36,8 @@ go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.js
 
 For cross-DB, seed, benchmark, and plugin scenarios, use the docs below.
 
+Performance note: use `go run` for development checks, and prebuilt binaries (`go build` then run) for production/performance benchmarking.
+
 ## Documentation Map
 
 - Config-driven schema, production template, and rerun guidance: [`docs/config-driven-flow.md`](docs/config-driven-flow.md)
