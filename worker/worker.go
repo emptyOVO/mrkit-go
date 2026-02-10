@@ -1,14 +1,14 @@
 package worker
 
 import (
-	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
@@ -119,51 +119,39 @@ func partialContent(fInfo *rpc.MapFileInfo) string {
 
 	defer f.Close()
 
-	scanner := bufio.NewScanner(f)
-
-	line := 0
-	content := ""
-
-	for scanner.Scan() {
-		if int(fInfo.From) <= line && line < int(fInfo.To) {
-			content += scanner.Text() + "\n"
-		} else if line >= int(fInfo.To) {
-			break
-		}
-		line++
+	start := fInfo.From
+	end := fInfo.To
+	if end < start {
+		return ""
 	}
-
-	return content
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		panic(err)
+	}
+	size := end - start
+	if size <= 0 {
+		return ""
+	}
+	buf := make([]byte, size)
+	_, err = io.ReadFull(f, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		panic(err)
+	}
+	return string(buf)
 }
 
 func writeIMDToLocalFile(imdKV [][]KV, uuid string, inRAM bool) []string {
-	var filenames []string
-	// Write to local file
-	filenameChan := make(chan string, 20)
-	finishChan := make(chan bool, 2)
-	for taskId, kvs := range imdKV {
+	// Filenames must stay aligned with reducer index, otherwise master will
+	// dispatch wrong partitions to reducers and produce duplicate outputs.
+	filenames := make([]string, len(imdKV))
+	var wg sync.WaitGroup
+	for taskID, kvs := range imdKV {
+		wg.Add(1)
 		go func(t int, s []KV) {
-			writeIMDToLocalFileParallel(t, s, uuid, inRAM, filenameChan, finishChan)
-		}(taskId, kvs)
+			defer wg.Done()
+			filenames[t] = writeIMDToLocalFileParallel(t, s, uuid, inRAM)
+		}(taskID, kvs)
 	}
-
-	count := 0
-LOOP:
-	for {
-		select {
-		case f, more := <-filenameChan:
-			if more {
-				filenames = append(filenames, f)
-			} else {
-				break LOOP
-			}
-		case <-finishChan:
-			count++
-			if count == len(imdKV) {
-				close(filenameChan)
-			}
-		}
-	}
+	wg.Wait()
 	return filenames
 }
 
@@ -176,9 +164,8 @@ func reducerForKey(key string, nReduce int) int {
 	return int(h.Sum32()&0x7fffffff) % nReduce
 }
 
-func writeIMDToLocalFileParallel(taskId int, kvs []KV, uuid string, inRAM bool, output chan string, finish chan bool) {
-	content_byte, _ := json.Marshal(kvs)
-	content := string(content_byte)
+func writeIMDToLocalFileParallel(taskId int, kvs []KV, uuid string, inRAM bool) string {
+	content := encodeIMDKVs(kvs)
 
 	var fname string
 	if inRAM {
@@ -190,7 +177,6 @@ func writeIMDToLocalFileParallel(taskId int, kvs []KV, uuid string, inRAM bool, 
 	} else {
 		fname = fmt.Sprintf("output/imd-%v-%v.txt", uuid, taskId)
 	}
-	output <- fname
 	if err := os.MkdirAll(filepath.Dir(fname), 0o755); err != nil {
 		panic(err)
 	}
@@ -201,7 +187,7 @@ func writeIMDToLocalFileParallel(taskId int, kvs []KV, uuid string, inRAM bool, 
 	defer file.Close()
 
 	file.WriteString(content)
-	finish <- true
+	return fname
 }
 
 func (wr *Worker) Reduce(ctx context.Context, in *rpc.ReduceInfo) (*rpc.Result, error) {
@@ -263,9 +249,7 @@ func generateIMDKV(file string) string {
 		panic(err)
 	}
 
-	content := string(b)
-
-	return content
+	return strings.TrimSpace(string(b))
 }
 
 func (wr *Worker) End(ctx context.Context, in *rpc.Empty) (*rpc.Empty, error) {

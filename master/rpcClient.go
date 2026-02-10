@@ -2,6 +2,8 @@ package master
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
@@ -20,6 +22,18 @@ type RpcClient interface {
 
 type workerClient struct{}
 
+func durationFromEnv(key string, def time.Duration) time.Duration {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return def
+	}
+	secs, err := strconv.Atoi(raw)
+	if err != nil || secs <= 0 {
+		return def
+	}
+	return time.Duration(secs) * time.Second
+}
+
 func (client *workerClient) Connect(workerIP string) (*grpc.ClientConn, rpc.WorkerClient) {
 	conn, err := grpc.Dial(workerIP, grpc.WithInsecure())
 	if err != nil {
@@ -37,7 +51,10 @@ func (client *workerClient) Map(workerIP string, m *rpc.MapInfo) bool {
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		durationFromEnv("MR_MAP_RPC_TIMEOUT_SEC", 600*time.Second),
+	)
 	defer cancel()
 
 	r, err := c.Map(ctx, m)
@@ -62,7 +79,10 @@ func (client *workerClient) Reduce(workerIP string, m *rpc.ReduceInfo) bool {
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		durationFromEnv("MR_REDUCE_RPC_TIMEOUT_SEC", 600*time.Second),
+	)
 	defer cancel()
 
 	r, err := c.Reduce(ctx, m)
@@ -113,7 +133,10 @@ func (client *workerClient) Health(workerIP string) int {
 	}
 	defer conn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		durationFromEnv("MR_HEALTH_RPC_TIMEOUT_SEC", 1*time.Second),
+	)
 	defer cancel()
 
 	r, err := c.Health(ctx, &rpc.Empty{})
