@@ -22,7 +22,7 @@ Run:
 
 ```bash
 go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go
-go run -race ./cmd/legacy/main/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 4 --port 11320 -m=false
+go run -race ./cmd/legacy/main/main.go -i 'txt/*.txt' -p 'cmd/wc.so' -r 1 -w 4 --port 11320 -m=false
 ```
 
 ## Multi Process (Master + Workers)
@@ -59,10 +59,10 @@ Run:
 
 ```bash
 go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go
-go run -race ./cmd/legacy/master/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
+go run -race ./cmd/legacy/master/main.go -i 'txt/*.txt' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
 sleep 1
-go run -race ./cmd/legacy/worker/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 1 --port 11340 -m=false &
-go run -race ./cmd/legacy/worker/main.go -i 'txt/*' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
+go run -race ./cmd/legacy/worker/main.go -i 'txt/*.txt' -p 'cmd/wc.so' -r 1 -w 1 --port 11340 -m=false &
+go run -race ./cmd/legacy/worker/main.go -i 'txt/*.txt' -p 'cmd/wc.so' -r 1 -w 2 --port 11340 -m=false &
 ```
 
 Notes:

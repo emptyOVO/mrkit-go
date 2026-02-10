@@ -61,12 +61,12 @@ docker build -t mrkit-go-batch:local .
 # legacy single-machine
 docker run --rm --entrypoint /bin/bash \
   -v "$(pwd)":/app -w /app mrkit-go-batch:local \
-  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt; "$GO" run ./cmd/legacy/main/main.go -i "txt/*" -p "cmd/wc.so" -r 1 -w 4 --port 21100 -m=false; test -f mr-out-0.txt'
+  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt; "$GO" run ./cmd/legacy/main/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 4 --port 21100 -m=false; test -f mr-out-0.txt'
 
 # legacy master+worker
 docker run --rm --entrypoint /bin/bash \
   -v "$(pwd)":/app -w /app mrkit-go-batch:local \
-  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt /tmp/m.log /tmp/w1.log /tmp/w2.log; "$GO" run ./cmd/legacy/master/main.go -i "txt/*" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/m.log 2>&1 & MP=$!; sleep 1; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*" -p "cmd/wc.so" -r 1 -w 1 --port 21110 -m=false >/tmp/w1.log 2>&1 & W1=$!; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/w2.log 2>&1 & W2=$!; wait $MP; wait $W1; wait $W2; test -f mr-out-0.txt'
+  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt /tmp/m.log /tmp/w1.log /tmp/w2.log; "$GO" run ./cmd/legacy/master/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/m.log 2>&1 & MP=$!; sleep 1; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 1 --port 21110 -m=false >/tmp/w1.log 2>&1 & W1=$!; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/w2.log 2>&1 & W2=$!; wait $MP; wait $W1; wait $W2; test -f mr-out-0.txt'
 ```
 
 ### 3) Docker E2E (seed + 4 cross-DB paths)
@@ -80,14 +80,19 @@ jq 'if .source.type=="mysql" then .source.db.host="host.docker.internal" else . 
 jq 'if .source.type=="mysql" then .source.db.host="host.docker.internal" else . end | if .source.type=="redis" then .source.redis.host="host.docker.internal" else . end | if .sink.type=="mysql" then .sink.db.host="host.docker.internal" else . end | if .sink.type=="redis" then .sink.redis.host="host.docker.internal" else . end | .transform.port=22113' example/batch-minimal/flows/cross-db/flow.redis_to_mysql.count.json > /tmp/mrkit-docker-flows/r2m.json
 jq 'if .source.type=="mysql" then .source.db.host="host.docker.internal" else . end | if .source.type=="redis" then .source.redis.host="host.docker.internal" else . end | if .sink.type=="mysql" then .sink.db.host="host.docker.internal" else . end | if .sink.type=="redis" then .sink.redis.host="host.docker.internal" else . end | .transform.port=22114' example/batch-minimal/flows/cross-db/flow.redis_to_redis.count.json > /tmp/mrkit-docker-flows/r2r.json
 
+# clean host-built plugin cache to avoid cross-OS ELF mismatch in container
+rm -rf .cache/batch-builtins .cache/mysqlbatch-builtins
+
 for name in seed m2m m2r r2m r2r; do
-  docker run --rm -v /tmp/mrkit-docker-flows:/flows mrkit-go-batch:local -check -config "/flows/${name}.json"
-  docker run --rm -v /tmp/mrkit-docker-flows:/flows mrkit-go-batch:local -config "/flows/${name}.json"
+  docker run --rm --entrypoint /bin/bash -v /tmp/mrkit-docker-flows:/flows -w /app mrkit-go-batch:local \
+    -lc "\"\$GO\" run ./cmd/batch -check -config \"/flows/${name}.json\""
+  docker run --rm --entrypoint /bin/bash -v /tmp/mrkit-docker-flows:/flows -w /app mrkit-go-batch:local \
+    -lc "\"\$GO\" run ./cmd/batch -config \"/flows/${name}.json\""
 done
 ```
 
 ## Cleanup
 
 ```bash
-rm -f -- mr-out-*.txt output/imd-*.txt txt/mysql_source/chunk-*.txt txt/redis_source/chunk-*.txt cmd/*.so
+rm -f -- mr-out-*.txt output/imd-*.txt txt/redis_source/chunk-*.txt cmd/*.so
 ```
