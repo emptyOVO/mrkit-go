@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -117,12 +116,5 @@ func (client *masterClient) GetIMDData(ip string, filename string) []KV {
 		}
 	}
 
-	var ret []KV
-
-	err = json.Unmarshal([]byte(r.Kvs), &ret)
-	if err != nil {
-		panic(err)
-	}
-
-	return ret
+	return decodeIMDKVs(r.Kvs)
 }

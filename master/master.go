@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
 	log "github.com/sirupsen/logrus"
@@ -104,9 +106,12 @@ func (ms *Master) distributeWork(files []string) {
 	ms.MapTasks = newMapTasks(numWorkers)
 
 	// Distribute work
-	// Count the total lines
 	for _, file := range files {
-		totalLine := lineNums(file)
+		lineOffsets, err := fileLineOffsets(file)
+		if err != nil {
+			panic(err)
+		}
+		totalLine := len(lineOffsets) - 1
 		baseWorkLoad := totalLine / numWorkers
 
 		from := 0
@@ -116,7 +121,10 @@ func (ms *Master) distributeWork(files []string) {
 				workLoad++
 			}
 
-			ms.MapTasks[i].addFile(file, from, from+workLoad)
+			// Use byte offsets directly so workers can seek without rescanning.
+			startByte := int(lineOffsets[from])
+			endByte := int(lineOffsets[from+workLoad])
+			ms.MapTasks[i].addFile(file, startByte, endByte)
 			from += workLoad
 		}
 	}
@@ -146,7 +154,9 @@ LOOP:
 			}
 		}
 		if broken == len(ms.Workers) {
-			log.Panic("No enough worker!", total, num)
+			log.Warn("No enough worker now, retrying...", total, num)
+			time.Sleep(200 * time.Millisecond)
+			continue
 		}
 		// ms.mux.Unlock()
 	}
@@ -170,6 +180,33 @@ func lineNums(file string) int {
 		num++
 	}
 	return num
+}
+
+func fileLineOffsets(file string) ([]int64, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+	var offsets []int64
+	offsets = append(offsets, 0)
+	var cursor int64
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			cursor += int64(len(line))
+			offsets = append(offsets, cursor)
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+	}
+	return offsets, nil
 }
 
 func orDone(finish, crashChan <-chan string, numberOfTasks int) <-chan string {
@@ -233,11 +270,14 @@ func (ms *Master) distributeMapTask() {
 		workers, _ := ms.availableWorkers(1)
 		log.Info("[Master] Re-execute Map Task from ", crashUUID, " To ", workers[0].UUID)
 		if crashUUID == workers[0].UUID {
-			log.Panic("Self loop")
+			log.Warn("Re-execute assigned same worker, retrying...")
+			ms.crashChan <- crashUUID
+			continue
 		}
 		reExecuteTask, ok := taskStates.Load(crashUUID)
 		if !ok {
-			log.Panic("Load task states from crashUUID fail")
+			log.Warn("Load task states from crashUUID fail")
+			continue
 		}
 		go func(task MapTaskInfo, id int) {
 			// taskStates.Delete(crashUUID)

@@ -1,6 +1,6 @@
 # Config-Driven Flow
 
-This project uses a SeaTunnel-style pipeline config:
+This project uses a config-driven pipeline:
 
 - `source`
 - `transform`
@@ -92,7 +92,7 @@ go run ./cmd/batch -config /path/to/flow.json
 Run:
 
 ```bash
-go run ./cmd/batch -config /absolute/path/flow.prod.json
+go run ./cmd/batch -config ./configs/flow.prod.json
 ```
 
 ## Built-in Cross-DB Examples

@@ -35,7 +35,6 @@ go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.js
 ```
 
 For cross-DB, seed, benchmark, and plugin scenarios, use the docs below.
-
 ## Quickstart (Docker)
 
 Build local image:
@@ -67,6 +66,8 @@ docker run --rm \
   -config /app/flows/smoke/flow.mysql.count.json
 ```
 
+Performance note: use `go run` for development checks, and prebuilt binaries (`go build` then run) for production/performance benchmarking.
+
 ## Documentation Map
 
 - Config-driven schema, production template, and rerun guidance: [`docs/config-driven-flow.md`](docs/config-driven-flow.md)
@@ -74,6 +75,7 @@ docker run --rm \
 - Built-in transforms and plugin mode: [`docs/transforms.md`](docs/transforms.md)
 - Go library usage (`batch.RunPipeline`): [`docs/library-usage.md`](docs/library-usage.md)
 - Benchmark usage: [`docs/benchmark.md`](docs/benchmark.md)
+- Performance analysis (mrkit-go vs local Hadoop Streaming): [`docs/performance-analysis.md`](docs/performance-analysis.md)
 - Legacy MapReduce entrypoints (`cmd/legacy/main/main.go`, `cmd/legacy/master/main.go`, `cmd/legacy/worker/main.go`): [`docs/legacy-mapreduce.md`](docs/legacy-mapreduce.md)
 - Minimal end-to-end examples: [`example/batch-minimal/README.md`](example/batch-minimal/README.md)
 

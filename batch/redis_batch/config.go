@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -137,7 +138,7 @@ func (c *client) readResp() (interface{}, error) {
 			return nil, nil
 		}
 		buf := make([]byte, n+2)
-		if _, err := c.rd.Read(buf); err != nil {
+		if _, err := io.ReadFull(c.rd, buf); err != nil {
 			return nil, err
 		}
 		return string(buf[:n]), nil
