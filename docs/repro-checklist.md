@@ -2,6 +2,13 @@
 
 This page provides copy-paste commands to reproduce the main verification paths.
 
+For a fully automated path (deploy MySQL/Redis + run all core flows + verify outputs), use:
+
+```bash
+chmod +x scripts/quickstart.sh
+./scripts/quickstart.sh
+```
+
 ## Prerequisites
 
 - Go toolchain installed (`go version`)

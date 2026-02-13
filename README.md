@@ -13,30 +13,42 @@ Primary path for new users:
 - run `./cmd/batch` with that config
 - support MySQL/Redis source and sink combinations
 
-## Quickstart (Config-Driven)
+## Quickstart (One Command, Recommended)
 
-### 1) Prepare demo data (optional)
-
-```bash
-MYSQL_HOST=localhost MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=123456 \
-MYSQL_DB=mysql SOURCE_TABLE=source_events TARGET_TABLE=agg_results \
-ROWS=5000 KEY_MOD=100 \
-go run ./cmd/batch -mode prepare
-```
-
-### 2) Validate a config
+This path deploys MySQL + Redis automatically (Docker), creates required DBs, prepares synthetic data, runs all core flows (`seed/m2m/m2r/r2m/r2r`), and validates results.
 
 ```bash
-go run ./cmd/batch -check -config example/batch-minimal/flows/smoke/flow.mysql.count.json
+chmod +x scripts/quickstart.sh
+./scripts/quickstart.sh
 ```
 
-### 3) Run a flow
+Expected final output includes:
+- `all checks passed`
+- MySQL tables row counts and Redis key counts equal to `KEY_MOD` (default `100`)
+
+Default quickstart service ports:
+- MySQL: `127.0.0.1:13306`
+- Redis: `127.0.0.1:16379`
+
+Useful overrides:
 
 ```bash
-go run ./cmd/batch -config example/batch-minimal/flows/smoke/flow.mysql.count.json
+KEY_MOD=200 ROWS=10000 ./scripts/quickstart.sh
+MYSQL_PORT=23306 REDIS_PORT=26379 ./scripts/quickstart.sh
+GO_BIN=/path/to/go ./scripts/quickstart.sh
 ```
 
-For cross-DB, seed, benchmark, and plugin scenarios, use the docs below.
+Stop quickstart services:
+
+```bash
+docker rm -f mrkit-quickstart-mysql mrkit-quickstart-redis
+```
+
+## Quickstart (Manual, Config-Driven)
+
+If you already have MySQL/Redis and want to run commands manually, follow:
+- [`docs/repro-checklist.md`](docs/repro-checklist.md)
+- [`docs/config-driven-flow.md`](docs/config-driven-flow.md)
 ## Quickstart (Docker)
 
 Build local image:
