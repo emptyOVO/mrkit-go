@@ -7,6 +7,15 @@ Prerequisites:
 - MySQL/Redis prepared according to your selected flow
 - for Hadoop comparison: local `hadoop` command available on host
 
+One-line Hadoop vs mrkit compare:
+
+```bash
+chmod +x scripts/benchmark_hadoop_compare.sh && ./scripts/benchmark_hadoop_compare.sh
+```
+
+If `hadoop` is missing, this script tries auto-install by default.
+Set `AUTO_INSTALL_HADOOP=0` to disable auto-install.
+
 For performance numbers, prefer prebuilt binary (avoids `go run` compile overhead):
 
 ```bash

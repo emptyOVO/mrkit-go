@@ -122,7 +122,32 @@ go build -o ./bin/batch ./cmd/batch
 
 ## Repro Command Reference
 
-Use your local scripts (already used in this repo workflow):
+One-line matrix (recommended):
+
+```bash
+chmod +x scripts/benchmark_hadoop_compare.sh && ./scripts/benchmark_hadoop_compare.sh
+```
+
+This command runs reducers `1/4/8` for both runner and binary paths, then writes a merged summary to:
+
+- `benchmark/hadoop-host/oneshot_*/summary.csv`
+
+Optional overrides:
+
+```bash
+ROWS=20000 ROUNDS=1 REDUCERS_SET="1 4 8" MODE=both ./scripts/benchmark_hadoop_compare.sh
+GO_BIN=/path/to/go MODE=bin ./scripts/benchmark_hadoop_compare.sh
+```
+
+Dependency behavior:
+- if `hadoop` is missing, script tries auto-install by default (`AUTO_INSTALL_HADOOP=1`)
+- disable auto-install and fail fast:
+
+```bash
+AUTO_INSTALL_HADOOP=0 ./scripts/benchmark_hadoop_compare.sh
+```
+
+Detailed per-run commands:
 
 ```bash
 # runner-path matrix

@@ -17,6 +17,12 @@ Primary path for new users:
 
 This path deploys MySQL + Redis automatically (Docker), creates required DBs, prepares synthetic data, runs all core flows (`seed/m2m/m2r/r2m/r2r`), and validates results.
 
+Environment Check (one line):
+
+```bash
+command -v go docker jq bash awk python3 >/dev/null && echo "env ok" || echo "missing deps"
+```
+
 ```bash
 chmod +x scripts/quickstart.sh
 ./scripts/quickstart.sh

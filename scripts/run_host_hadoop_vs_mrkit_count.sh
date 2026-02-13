@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GO_BIN="${GO_BIN:-/Users/empty/.g/go/bin/go}"
+GO_BIN="${GO_BIN:-go}"
 ROWS="${ROWS:-100000}"
 KEY_MOD="${KEY_MOD:-10000}"
 REDUCERS="${REDUCERS:-4}"
@@ -32,7 +32,11 @@ require_cmd() {
   }
 }
 
-require_cmd "$GO_BIN"
+if ! command -v "$GO_BIN" >/dev/null 2>&1; then
+  echo "go command not found: $GO_BIN" >&2
+  echo "set GO_BIN explicitly, e.g. GO_BIN=/path/to/go $0" >&2
+  exit 1
+fi
 require_cmd hadoop
 require_cmd awk
 
