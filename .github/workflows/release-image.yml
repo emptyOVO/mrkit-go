@@ -11,7 +11,43 @@ permissions:
   packages: write
 
 jobs:
+  m1_gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install gate deps
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Resolve latest run_id
+        id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(ls -1 reports/m1 2>/dev/null | sort | tail -n 1 || true)"
+          if [ -z "$RUN_ID" ]; then
+            echo "No reports found under reports/m1" >&2
+            exit 1
+          fi
+          if [ ! -f "reports/m1/$RUN_ID/summary.json" ]; then
+            echo "summary.json not found for run_id=$RUN_ID" >&2
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Using run_id=$RUN_ID"
+
+      - name: Run M1 gate
+        shell: bash
+        env:
+          MIN_PASS_RATE: "95"
+        run: |
+          set -euo pipefail
+          chmod +x scripts/m1_gate.sh
+          ./scripts/m1_gate.sh "${{ steps.pick.outputs.run_id }}"
+
   docker:
+    needs: m1_gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

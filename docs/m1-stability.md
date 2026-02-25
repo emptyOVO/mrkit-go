@@ -56,6 +56,11 @@ Manual gate command:
 MIN_PASS_RATE=95 ./scripts/m1_gate.sh <run_id>
 ```
 
+Release preflight integration:
+
+- tag release flow (`v*`) now runs the same gate automatically in CI before Docker release image publish.
+- current policy is non-required branch check, but every release run includes explicit gate result logs.
+
 ## Report Visualization (CSV + SVG)
 
 ```bash

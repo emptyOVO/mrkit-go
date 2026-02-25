@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
+	"github.com/emptyOVO/mrkit-go/runtime/observability"
 	"github.com/emptyOVO/mrkit-go/runtime/scheduler"
 	"github.com/emptyOVO/mrkit-go/runtime/workerpool"
 	log "github.com/sirupsen/logrus"
@@ -28,6 +29,7 @@ type Master struct {
 	mux          sync.Mutex
 	client       RpcClient
 	registry     *workerpool.Registry
+	metrics      *observability.Metrics
 	rpc.UnimplementedMasterServer
 }
 
@@ -40,6 +42,7 @@ func NewMaster(nWorker int, nReduce int) rpc.MasterServer {
 		numReducer:   nReduce,
 		client:       &workerClient{},
 		registry:     workerpool.New(workerLeaseTTLFromEnv()),
+		metrics:      observability.NewMetrics(),
 		enoughWorker: make(chan bool, 1),
 		crashChan:    make(chan string, 100),
 	}
@@ -67,6 +70,7 @@ func (ms *Master) WorkerRegister(ctx context.Context, in *rpc.WorkerInfo) (*rpc.
 	if ms.registry != nil {
 		ms.registry.Register(in.Uuid, in.Ip)
 	}
+	ms.updateWorkerAliveMetricLocked()
 
 	num = ms.numWorkers
 	ms.mux.Unlock()
@@ -263,6 +267,7 @@ func (ms *Master) distributeMapTask() {
 		log.Trace("[Master] End Map task")
 		return
 	}
+	stageStart := time.Now()
 
 	stage := scheduler.New(schedulerRetryPolicyFromEnv())
 	taskByID := make(map[string]*MapTaskInfo, len(ms.MapTasks))
@@ -279,6 +284,7 @@ func (ms *Master) distributeMapTask() {
 		}); err != nil {
 			log.Panicf("submit map task failed: %v", err)
 		}
+		ms.incTaskTotal("map", "submitted")
 	}
 
 	total := len(ms.MapTasks)
@@ -320,6 +326,7 @@ func (ms *Master) distributeMapTask() {
 				if err := stage.Fail(taskID, "map rpc failed"); err != nil {
 					log.Warnf("[Master] map fail transition failed for %s: %v", taskID, err)
 				}
+				ms.observeRetryOrFail(stage, taskID, "map")
 				ms.setWorkerState(w.UUID, WORKER_UNKNOWN)
 				return
 			}
@@ -327,9 +334,11 @@ func (ms *Master) distributeMapTask() {
 			if err := stage.Complete(taskID); err != nil {
 				log.Warnf("[Master] map complete transition failed for %s: %v", taskID, err)
 			}
+			ms.incTaskTotal("map", "success")
 			ms.setWorkerState(w.UUID, WORKER_IDLE)
 		}(task.ID, worker, payload)
 	}
+	ms.observeStageDuration("map", time.Since(stageStart))
 
 	log.Trace("[Master] End Map task")
 }
@@ -340,6 +349,7 @@ func (ms *Master) distributeReduceTask() {
 		log.Trace("[Master] End Reduce task")
 		return
 	}
+	stageStart := time.Now()
 
 	stage := scheduler.New(schedulerRetryPolicyFromEnv())
 	taskByID := make(map[string]*ReduceTaskInfo, len(ms.ReduceTasks))
@@ -356,6 +366,7 @@ func (ms *Master) distributeReduceTask() {
 		}); err != nil {
 			log.Panicf("submit reduce task failed: %v", err)
 		}
+		ms.incTaskTotal("reduce", "submitted")
 	}
 
 	total := len(ms.ReduceTasks)
@@ -397,6 +408,7 @@ func (ms *Master) distributeReduceTask() {
 				if err := stage.Fail(taskID, "reduce rpc failed"); err != nil {
 					log.Warnf("[Master] reduce fail transition failed for %s: %v", taskID, err)
 				}
+				ms.observeRetryOrFail(stage, taskID, "reduce")
 				ms.setWorkerState(w.UUID, WORKER_UNKNOWN)
 				return
 			}
@@ -404,9 +416,11 @@ func (ms *Master) distributeReduceTask() {
 			if err := stage.Complete(taskID); err != nil {
 				log.Warnf("[Master] reduce complete transition failed for %s: %v", taskID, err)
 			}
+			ms.incTaskTotal("reduce", "success")
 			ms.setWorkerState(w.UUID, WORKER_IDLE)
 		}(task.ID, worker, payload)
 	}
+	ms.observeStageDuration("reduce", time.Since(stageStart))
 
 	log.Trace("[Master] End Reduce task")
 }
@@ -444,6 +458,56 @@ func (ms *Master) setWorkerStateLocked(uuid string, state int) {
 	default:
 		ms.registry.SetState(uuid, workerpool.WorkerUnknown)
 	}
+	ms.updateWorkerAliveMetricLocked()
+}
+
+func (ms *Master) metricsSnapshot() string {
+	if ms.metrics == nil {
+		return ""
+	}
+	return ms.metrics.RenderPrometheus()
+}
+
+func (ms *Master) incTaskTotal(stage, result string) {
+	if ms.metrics == nil {
+		return
+	}
+	ms.metrics.IncTaskTotal(stage, result)
+}
+
+func (ms *Master) observeRetryOrFail(stageScheduler *scheduler.Scheduler, taskID string, stageName string) {
+	if ms.metrics == nil {
+		return
+	}
+	switch schedulerTaskStateByID(stageScheduler.Snapshot(), taskID) {
+	case scheduler.TaskPending:
+		ms.metrics.IncTaskRetry(stageName)
+	case scheduler.TaskFailed:
+		ms.metrics.IncTaskTotal(stageName, "failed")
+	}
+}
+
+func (ms *Master) observeStageDuration(stage string, d time.Duration) {
+	if ms.metrics == nil {
+		return
+	}
+	ms.metrics.ObserveStageDuration(stage, d)
+}
+
+func schedulerTaskStateByID(tasks []scheduler.Task, taskID string) scheduler.TaskState {
+	for _, t := range tasks {
+		if t.ID == taskID {
+			return t.State
+		}
+	}
+	return ""
+}
+
+func (ms *Master) updateWorkerAliveMetricLocked() {
+	if ms.metrics == nil || ms.registry == nil {
+		return
+	}
+	ms.metrics.SetWorkerAlive(len(ms.registry.Snapshot()))
 }
 
 func schedulerRetryPolicyFromEnv() scheduler.RetryPolicy {

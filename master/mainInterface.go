@@ -31,6 +31,8 @@ func StartMaster(files []string, nWorker int, nReduce int, addr string) {
 		log.Panic(err)
 	}
 	ms := NewMaster(nWorker, nReduce)
+	stopMetrics := startMetricsServer(ms.(*Master), addr)
+	defer stopMetrics()
 	baseServer := grpc.NewServer()
 	rpc.RegisterMasterServer(baseServer, ms)
 	go baseServer.Serve(listener)
