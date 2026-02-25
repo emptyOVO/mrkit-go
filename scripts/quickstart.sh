@@ -61,13 +61,25 @@ docker run -d \
   >/dev/null
 
 echo "[quickstart] wait mysql ready"
-for _ in $(seq 1 60); do
-  if docker exec "$MYSQL_CONTAINER" mysqladmin ping -uroot -p"$MYSQL_PASSWORD" --silent >/dev/null 2>&1; then
+MYSQL_AUTH_ARGS=("-uroot" "-p$MYSQL_PASSWORD")
+for _ in $(seq 1 90); do
+  if docker exec "$MYSQL_CONTAINER" \
+    mysql "${MYSQL_AUTH_ARGS[@]}" -e "SELECT 1" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
-docker exec "$MYSQL_CONTAINER" mysqladmin ping -uroot -p"$MYSQL_PASSWORD" --silent >/dev/null
+if ! docker exec "$MYSQL_CONTAINER" mysql "${MYSQL_AUTH_ARGS[@]}" -e "SELECT 1" >/dev/null 2>&1; then
+  # Some local images may keep root empty-password auth. Fallback instead of
+  # failing after a false-positive readiness check.
+  if docker exec "$MYSQL_CONTAINER" mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
+    MYSQL_AUTH_ARGS=("-uroot")
+    echo "[quickstart] mysql root password auth unavailable, fallback to root without password"
+  else
+    echo "[quickstart] mysql is not ready for SQL login" >&2
+    exit 1
+  fi
+fi
 
 echo "[quickstart] wait redis ready"
 for _ in $(seq 1 30); do
@@ -80,7 +92,7 @@ done
 
 echo "[quickstart] create mysql target db"
 docker exec "$MYSQL_CONTAINER" \
-  mysql -uroot -p"$MYSQL_PASSWORD" \
+  mysql "${MYSQL_AUTH_ARGS[@]}" \
   -e "CREATE DATABASE IF NOT EXISTS mr_target;" >/dev/null
 
 echo "[quickstart] prepare synthetic source table"
@@ -147,7 +159,7 @@ run_flow r2r "$FLOW_DIR/r2r.json"
 mysql_count() {
   local table="$1"
   docker exec "$MYSQL_CONTAINER" \
-    mysql -N -uroot -p"$MYSQL_PASSWORD" \
+    mysql "${MYSQL_AUTH_ARGS[@]}" -N \
     -e "SELECT COUNT(*) FROM mr_target.${table};" | tr -d '\r'
 }
 
