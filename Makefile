@@ -94,3 +94,7 @@ e2e-mysql-redis:
 	GO_BIN="$(GO_BIN)" scripts/e2e.sh
 
 e2e: e2e-mysql-redis
+
+m1-stability:
+	chmod +x scripts/m1_stability.sh
+	GO_BIN="$(GO_BIN)" scripts/m1_stability.sh
