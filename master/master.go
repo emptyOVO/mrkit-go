@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
+	"github.com/emptyOVO/mrkit-go/runtime/scheduler"
 	"github.com/emptyOVO/mrkit-go/runtime/workerpool"
 	log "github.com/sirupsen/logrus"
 )
@@ -258,60 +259,76 @@ func orDone(finish, crashChan <-chan string, numberOfTasks int) <-chan string {
 
 func (ms *Master) distributeMapTask() {
 	log.Trace("[Master] Start Map task")
-
-	taskStates := sync.Map{}
-
-	finish := make(chan string, 100)
-	defer close(finish)
-	// crashChan := make(chan MapTaskInfo, 100)
-	workerID := 0
-	workers, nWorkers := ms.availableWorkers(ms.totalWorkers)
-	for _, mapTask := range ms.MapTasks {
-		mapTask.setState(TASK_INPROGRESS)
-		go func(task MapTaskInfo, id int) {
-			taskStates.Store(workers[id].UUID, task)
-			done := ms.client.Map(workers[id].IP, task.toRPC())
-			if !done {
-				// task.setState(TASK_IDLE)
-				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
-				ms.crashChan <- workers[id].UUID
-				// crashChan <- task
-			} else {
-				// task.setState(TASK_COMPLETED)
-				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
-				finish <- workers[id].UUID
-			}
-		}(mapTask, workerID)
-		workerID = (workerID + 1) % nWorkers
+	if len(ms.MapTasks) == 0 {
+		log.Trace("[Master] End Map task")
+		return
 	}
 
-	for crashUUID := range orDone(finish, ms.crashChan, len(ms.MapTasks)) {
+	stage := scheduler.New(schedulerRetryPolicyFromEnv())
+	taskByID := make(map[string]*MapTaskInfo, len(ms.MapTasks))
+	maxRetry := schedulerMaxRetryFromEnv()
+	for i := range ms.MapTasks {
+		taskID := fmt.Sprintf("map-%d", i)
+		taskByID[taskID] = &ms.MapTasks[i]
+		if err := stage.Submit(scheduler.Task{
+			ID:       taskID,
+			JobID:    "legacy",
+			StageID:  "map",
+			Type:     scheduler.TaskTypeMap,
+			MaxRetry: maxRetry,
+		}); err != nil {
+			log.Panicf("submit map task failed: %v", err)
+		}
+	}
+
+	total := len(ms.MapTasks)
+	for {
+		success, failed := schedulerStateCount(stage.Snapshot())
+		if success == total {
+			break
+		}
+		if failed > 0 {
+			log.Panicf("map stage failed: %d/%d task(s) exhausted retries", failed, total)
+		}
+
 		workers, _ := ms.availableWorkers(1)
-		log.Info("[Master] Re-execute Map Task from ", crashUUID, " To ", workers[0].UUID)
-		if crashUUID == workers[0].UUID {
-			log.Warn("Re-execute assigned same worker, retrying...")
-			ms.crashChan <- crashUUID
+		worker := workers[0]
+		task, err := stage.Assign(worker.UUID)
+		if err == scheduler.ErrNoTask {
+			ms.setWorkerState(worker.UUID, WORKER_IDLE)
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
-		reExecuteTask, ok := taskStates.Load(crashUUID)
+		if err != nil {
+			ms.setWorkerState(worker.UUID, WORKER_IDLE)
+			log.Warnf("[Master] map assign failed: %v", err)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		payload, ok := taskByID[task.ID]
 		if !ok {
-			log.Warn("Load task states from crashUUID fail")
+			_ = stage.Fail(task.ID, "missing map payload")
+			ms.setWorkerState(worker.UUID, WORKER_UNKNOWN)
 			continue
 		}
-		go func(task MapTaskInfo, id int) {
-			// taskStates.Delete(crashUUID)
-			taskStates.Store(workers[id].UUID, task)
-			done := ms.client.Map(workers[id].IP, task.toRPC())
+		payload.setState(TASK_INPROGRESS)
+
+		go func(taskID string, w *WorkerInfo, mapTask *MapTaskInfo) {
+			done := ms.client.Map(w.IP, mapTask.toRPC())
 			if !done {
-				task.setState(TASK_IDLE)
-				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
-				ms.crashChan <- workers[id].UUID
-			} else {
-				task.setState(TASK_COMPLETED)
-				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
-				finish <- workers[id].UUID
+				mapTask.setState(TASK_IDLE)
+				if err := stage.Fail(taskID, "map rpc failed"); err != nil {
+					log.Warnf("[Master] map fail transition failed for %s: %v", taskID, err)
+				}
+				ms.setWorkerState(w.UUID, WORKER_UNKNOWN)
+				return
 			}
-		}(reExecuteTask.(MapTaskInfo), 0)
+			mapTask.setState(TASK_COMPLETED)
+			if err := stage.Complete(taskID); err != nil {
+				log.Warnf("[Master] map complete transition failed for %s: %v", taskID, err)
+			}
+			ms.setWorkerState(w.UUID, WORKER_IDLE)
+		}(task.ID, worker, payload)
 	}
 
 	log.Trace("[Master] End Map task")
@@ -319,51 +336,76 @@ func (ms *Master) distributeMapTask() {
 
 func (ms *Master) distributeReduceTask() {
 	log.Trace("[Master] Start Reduce task")
-
-	taskStates := sync.Map{}
-
-	finish := make(chan string, 100)
-	defer close(finish)
-	workerID := 0
-	workers, nWorkers := ms.availableWorkers(ms.numReducer)
-	for _, reduceTask := range ms.ReduceTasks {
-		reduceTask.SetState(TASK_INPROGRESS)
-		go func(task ReduceTaskInfo, id int) {
-			taskStates.Store(workers[id].UUID, task)
-			ms.setWorkerState(workers[id].UUID, WORKER_BUSY)
-			done := ms.client.Reduce(workers[id].IP, task.toRPC())
-			if !done {
-				task.SetState(TASK_IDLE)
-				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
-				ms.crashChan <- workers[id].UUID
-			} else {
-				task.SetState(TASK_COMPLETED)
-				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
-				finish <- workers[id].UUID
-			}
-		}(reduceTask, workerID)
-		workerID = (workerID + 1) % nWorkers
+	if len(ms.ReduceTasks) == 0 {
+		log.Trace("[Master] End Reduce task")
+		return
 	}
 
-	for crashUUID := range orDone(finish, ms.crashChan, len(ms.ReduceTasks)) {
-		workers, _ = ms.availableWorkers(1)
+	stage := scheduler.New(schedulerRetryPolicyFromEnv())
+	taskByID := make(map[string]*ReduceTaskInfo, len(ms.ReduceTasks))
+	maxRetry := schedulerMaxRetryFromEnv()
+	for i := range ms.ReduceTasks {
+		taskID := fmt.Sprintf("reduce-%d", i)
+		taskByID[taskID] = &ms.ReduceTasks[i]
+		if err := stage.Submit(scheduler.Task{
+			ID:       taskID,
+			JobID:    "legacy",
+			StageID:  "reduce",
+			Type:     scheduler.TaskTypeReduce,
+			MaxRetry: maxRetry,
+		}); err != nil {
+			log.Panicf("submit reduce task failed: %v", err)
+		}
+	}
 
-		log.Info("[Master] Re-execute Map Task from ", crashUUID, "To ", workers[0].UUID)
-		reExecuteTask, _ := taskStates.Load(crashUUID)
-		go func(task ReduceTaskInfo, id int) {
-			taskStates.Delete(crashUUID)
-			taskStates.Store(workers[id].UUID, task)
-			done := ms.client.Reduce(workers[id].IP, task.toRPC())
+	total := len(ms.ReduceTasks)
+	for {
+		success, failed := schedulerStateCount(stage.Snapshot())
+		if success == total {
+			break
+		}
+		if failed > 0 {
+			log.Panicf("reduce stage failed: %d/%d task(s) exhausted retries", failed, total)
+		}
+
+		workers, _ := ms.availableWorkers(1)
+		worker := workers[0]
+		task, err := stage.Assign(worker.UUID)
+		if err == scheduler.ErrNoTask {
+			ms.setWorkerState(worker.UUID, WORKER_IDLE)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		if err != nil {
+			ms.setWorkerState(worker.UUID, WORKER_IDLE)
+			log.Warnf("[Master] reduce assign failed: %v", err)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		payload, ok := taskByID[task.ID]
+		if !ok {
+			_ = stage.Fail(task.ID, "missing reduce payload")
+			ms.setWorkerState(worker.UUID, WORKER_UNKNOWN)
+			continue
+		}
+		payload.SetState(TASK_INPROGRESS)
+
+		go func(taskID string, w *WorkerInfo, reduceTask *ReduceTaskInfo) {
+			done := ms.client.Reduce(w.IP, reduceTask.toRPC())
 			if !done {
-				task.SetState(TASK_IDLE)
-				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
-				ms.crashChan <- workers[id].UUID
-			} else {
-				task.SetState(TASK_COMPLETED)
-				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
-				finish <- workers[id].UUID
+				reduceTask.SetState(TASK_IDLE)
+				if err := stage.Fail(taskID, "reduce rpc failed"); err != nil {
+					log.Warnf("[Master] reduce fail transition failed for %s: %v", taskID, err)
+				}
+				ms.setWorkerState(w.UUID, WORKER_UNKNOWN)
+				return
 			}
-		}(reExecuteTask.(ReduceTaskInfo), 0)
+			reduceTask.SetState(TASK_COMPLETED)
+			if err := stage.Complete(taskID); err != nil {
+				log.Warnf("[Master] reduce complete transition failed for %s: %v", taskID, err)
+			}
+			ms.setWorkerState(w.UUID, WORKER_IDLE)
+		}(task.ID, worker, payload)
 	}
 
 	log.Trace("[Master] End Reduce task")
@@ -402,4 +444,45 @@ func (ms *Master) setWorkerStateLocked(uuid string, state int) {
 	default:
 		ms.registry.SetState(uuid, workerpool.WorkerUnknown)
 	}
+}
+
+func schedulerRetryPolicyFromEnv() scheduler.RetryPolicy {
+	base := 200 * time.Millisecond
+	max := 5 * time.Second
+	if raw := os.Getenv("MR_TASK_RETRY_BASE_MS"); raw != "" {
+		if ms, err := strconv.Atoi(raw); err == nil && ms > 0 {
+			base = time.Duration(ms) * time.Millisecond
+		}
+	}
+	if raw := os.Getenv("MR_TASK_RETRY_MAX_MS"); raw != "" {
+		if ms, err := strconv.Atoi(raw); err == nil && ms > 0 {
+			max = time.Duration(ms) * time.Millisecond
+		}
+	}
+	if max < base {
+		max = base
+	}
+	return scheduler.RetryPolicy{BaseDelay: base, MaxDelay: max}
+}
+
+func schedulerMaxRetryFromEnv() int {
+	maxRetry := 8
+	if raw := os.Getenv("MR_TASK_MAX_RETRY"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 0 {
+			maxRetry = n
+		}
+	}
+	return maxRetry
+}
+
+func schedulerStateCount(tasks []scheduler.Task) (success int, failed int) {
+	for _, t := range tasks {
+		switch t.State {
+		case scheduler.TaskSuccess:
+			success++
+		case scheduler.TaskFailed:
+			failed++
+		}
+	}
+	return success, failed
 }
