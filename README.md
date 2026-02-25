@@ -75,16 +75,22 @@ docker run --rm \
 Run flow in container (use `host.docker.internal` for local DB access):
 
 ```bash
+mkdir -p /tmp/mrkit-docker-flow
+jq '.source.db.host="host.docker.internal" |
+    .source.db.port=13306 |
+    .source.db.database="mr_source" |
+    .sink.db.host="host.docker.internal" |
+    .sink.db.port=13306 |
+    .transform.port=22111' \
+  example/batch-minimal/flows/smoke/flow.mysql.count.json > /tmp/mrkit-docker-flow/m2m.json
+
 docker run --rm \
-  -v "$(pwd)/example/batch-minimal/flows:/app/flows:ro" \
-  -e MYSQL_HOST=host.docker.internal \
-  -e MYSQL_PORT=3306 \
-  -e MYSQL_USER=root \
-  -e MYSQL_PASSWORD=123456 \
-  -e MYSQL_DB=mysql \
+  -v "/tmp/mrkit-docker-flow/m2m.json:/app/flow.json:ro" \
   mrkit-go-batch:local \
-  -config /app/flows/smoke/flow.mysql.count.json
+  -config /app/flow.json
 ```
+
+Note: `-config` uses values from JSON, not `MYSQL_*` env vars. For full Docker reproducible flow (seed + m2m + m2r + r2m + r2r), use [`docs/repro-checklist.md`](docs/repro-checklist.md).
 
 Performance note: use `go run` for development checks, and prebuilt binaries (`go build` then run) for production/performance benchmarking.
 
@@ -94,12 +100,37 @@ Performance note: use `go run` for development checks, and prebuilt binaries (`g
 - Full reproducible test checklist (local + Docker + seed + 4 cross-DB paths): [`docs/repro-checklist.md`](docs/repro-checklist.md)
 - M1 stability loop and report outputs: [`docs/m1-stability.md`](docs/m1-stability.md)
 - Multi-node demo (minimal master/worker scripts): [`docs/multi-node-demo.md`](docs/multi-node-demo.md)
+- Runtime observability (`/metrics`, Prometheus, Grafana): [`docs/observability.md`](docs/observability.md)
+- Master failover design boundary (M3.5 draft): [`docs/master-failover-design.md`](docs/master-failover-design.md)
 - Built-in transforms and plugin mode: [`docs/transforms.md`](docs/transforms.md)
 - Go library usage (`batch.RunPipeline`): [`docs/library-usage.md`](docs/library-usage.md)
 - Benchmark usage: [`docs/benchmark.md`](docs/benchmark.md)
 - Performance analysis (mrkit-go vs local Hadoop Streaming): [`docs/performance-analysis.md`](docs/performance-analysis.md)
 - Legacy MapReduce entrypoints (`cmd/legacy/main/main.go`, `cmd/legacy/master/main.go`, `cmd/legacy/worker/main.go`): [`docs/legacy-mapreduce.md`](docs/legacy-mapreduce.md)
 - Minimal end-to-end examples: [`example/batch-minimal/README.md`](example/batch-minimal/README.md)
+
+## Runtime Observability (M3)
+
+`master` now exposes a Prometheus endpoint at:
+
+- default: `http://127.0.0.1:<master_port+1000>/metrics` (example: master `:10000` -> metrics `:11000`)
+- override: set `MR_METRICS_ADDR` (example `:2112` or `0.0.0.0:2112`)
+
+Exposed core metrics:
+
+- `task_total`
+- `task_retry_total`
+- `worker_alive`
+- `stage_duration_seconds`
+
+Minimal dashboard JSON:
+
+- [`dashboards/mrkit-observability-minimal.json`](dashboards/mrkit-observability-minimal.json)
+
+Example charts:
+
+![Throughput chart](docs/assets/throughput-example.svg)
+![Worker alive chart](docs/assets/worker-alive-example.svg)
 
 ## Contributions
 

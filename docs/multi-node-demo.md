@@ -24,8 +24,8 @@ This path supports: copy binaries + edit env + one command start.
 # on each machine
 GO_BIN=/path/to/go
 mkdir -p bin cmd
-$GO_BIN build -o bin/legacy-master ./cmd/legacy/master/main
-$GO_BIN build -o bin/legacy-worker ./cmd/legacy/worker/main
+$GO_BIN build -o bin/legacy-master ./cmd/legacy/master
+$GO_BIN build -o bin/legacy-worker ./cmd/legacy/worker
 $GO_BIN build -buildmode=plugin -o cmd/wc.so ./mrapps/wc
 ```
 
@@ -108,3 +108,24 @@ ENV_FILE=deploy/.env ./deploy/ssh_fanout.sh stop
   - `scripts/quickstart.sh`
   - `scripts/m1_stability.sh`
 - Master-kill failover is not included in current M2.
+
+## Failure and Troubleshooting
+
+- Port conflict (`address already in use`):
+  - change `MASTER_PORT` or worker start port range
+  - run `lsof -iTCP -sTCP:LISTEN | grep -E "11340|1000[0-9]"` to find occupied ports
+
+- Plugin ELF mismatch (`plugin was built with a different version` / `invalid ELF`):
+  - rebuild plugin on the same target environment as runtime binary
+  - in container demos, build `.so` inside the container image or set `FORCE_REBUILD_PLUGIN=1`
+  - for local demos, `FORCE_REBUILD_PLUGIN=1` on both `start_master.sh` and `start_worker.sh` is the safest default
+
+- Wrong worker advertised address (worker registered but unreachable):
+  - set `ADVERTISE_HOST` to an address routable from master (not `127.0.0.1` across machines)
+  - verify master can dial `ADVERTISE_HOST:<worker-port>` from network path
+
+- `go run` cache permission issue (`open .../go-build/... operation not permitted`):
+  - prefer `RUN_MODE=bin` for demos
+  - or provide writable cache env vars when starting scripts:
+    - `GOCACHE=/tmp/mrkit-go-cache GOMODCACHE=/tmp/mrkit-go-modcache ENV_FILE=deploy/.env ./deploy/start_master.sh`
+    - `GOCACHE=/tmp/mrkit-go-cache GOMODCACHE=/tmp/mrkit-go-modcache ENV_FILE=deploy/.env WORKER_ID=1 ./deploy/start_worker.sh`
