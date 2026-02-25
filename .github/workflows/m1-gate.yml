@@ -1,0 +1,52 @@
+name: M1 Gate (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "M1 report run_id under reports/m1 (leave empty to use latest)"
+        required: false
+        type: string
+      min_pass_rate:
+        description: "Minimum pass rate percentage"
+        required: false
+        default: "95"
+        type: string
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve run_id
+        id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+          INPUT_RUN_ID="${{ github.event.inputs.run_id }}"
+          if [ -n "$INPUT_RUN_ID" ]; then
+            RUN_ID="$INPUT_RUN_ID"
+          else
+            RUN_ID="$(ls -1 reports/m1 2>/dev/null | sort | tail -n 1 || true)"
+          fi
+          if [ -z "$RUN_ID" ]; then
+            echo "No reports found under reports/m1 and no run_id provided" >&2
+            exit 1
+          fi
+          if [ ! -f "reports/m1/$RUN_ID/summary.json" ]; then
+            echo "summary.json not found for run_id=$RUN_ID" >&2
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Using run_id=$RUN_ID"
+
+      - name: Run M1 gate
+        shell: bash
+        env:
+          MIN_PASS_RATE: ${{ github.event.inputs.min_pass_rate }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/m1_gate.sh
+          ./scripts/m1_gate.sh "${{ steps.pick.outputs.run_id }}"
