@@ -98,3 +98,11 @@ e2e: e2e-mysql-redis
 m1-stability:
 	chmod +x scripts/m1_stability.sh
 	GO_BIN="$(GO_BIN)" scripts/m1_stability.sh
+
+m1-gate:
+	chmod +x scripts/m1_gate.sh
+	./scripts/m1_gate.sh "$(RUN_ID)"
+
+m1-viz:
+	chmod +x scripts/m1_visualize.py
+	./scripts/m1_visualize.py "$(RUN_ID)"

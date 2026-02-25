@@ -49,6 +49,28 @@ Per run, reports are generated under:
 - no repeated failure on a fixed scenario
 - final counts match `KEY_MOD` for all sink targets
 
+Manual gate command:
+
+```bash
+# use run_id printed by scripts/m1_stability.sh
+MIN_PASS_RATE=95 ./scripts/m1_gate.sh <run_id>
+```
+
+## Report Visualization (CSV + SVG)
+
+```bash
+# generate CSV and lightweight SVG charts from one report
+./scripts/m1_visualize.py <run_id>
+```
+
+Outputs:
+
+- `reports/m1/<run_id>/viz/scenario_summary.csv`
+- `reports/m1/<run_id>/viz/details.csv`
+- `reports/m1/<run_id>/viz/scenario_pass_rate.svg`
+- `reports/m1/<run_id>/viz/scenario_avg_ms.svg`
+- `reports/m1/<run_id>/viz/visualization.md`
+
 ## Notes
 
 - master-kill failover is not part of this runbook yet.
