@@ -216,13 +216,13 @@ legacy_worker_chaos() {
     start_ms="$(ms_now)"
     rm -f -- mr-out-*.txt output/imd-*.txt
 
-    "$GO_BIN" run ./cmd/legacy/master/main/main.go -i "txt/*.txt" -p "cmd/wc.so" -r "$CHAOS_REDUCERS" -w "$CHAOS_WORKERS" --port "$base_port" -m=false >/tmp/m1_legacy_master_${r}.log 2>&1 &
+    "$GO_BIN" run ./cmd/legacy/master/main.go -i "txt/*.txt" -p "cmd/wc.so" -r "$CHAOS_REDUCERS" -w "$CHAOS_WORKERS" --port "$base_port" -m=false >/tmp/m1_legacy_master_${r}.log 2>&1 &
     mpid=$!
     sleep 1
 
     declare -a worker_pids=()
     for w in $(seq 1 "$CHAOS_WORKERS"); do
-      "$GO_BIN" run ./cmd/legacy/worker/main/main.go -i "txt/*.txt" -p "cmd/wc.so" -r "$CHAOS_REDUCERS" -w "$w" --port "$base_port" -m=false >/tmp/m1_legacy_worker_${r}_${w}.log 2>&1 &
+      "$GO_BIN" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r "$CHAOS_REDUCERS" -w "$w" --port "$base_port" -m=false >/tmp/m1_legacy_worker_${r}_${w}.log 2>&1 &
       worker_pids+=("$!")
     done
 

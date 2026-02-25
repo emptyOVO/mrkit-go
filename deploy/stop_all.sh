@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+ENV_FILE="${ENV_FILE:-$ROOT/deploy/.env}"
+if [ -f "$ENV_FILE" ]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
 RUN_DIR="${RUN_DIR:-$ROOT/.run/multi-node}"
 
 if [ -d "$RUN_DIR" ]; then
@@ -20,6 +26,7 @@ if [ -d "$RUN_DIR" ]; then
   done
 fi
 
-pkill -f '/cmd/legacy/master/main/main.go|/cmd/legacy/worker/main/main.go' >/dev/null 2>&1 || true
+pkill -f '/cmd/legacy/master/main.go|/cmd/legacy/worker/main.go' >/dev/null 2>&1 || true
+pkill -f 'legacy-master|legacy-worker' >/dev/null 2>&1 || true
 
 echo "[stop] done"

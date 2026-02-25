@@ -22,6 +22,8 @@ func ParseArg() ([]string, string, int, int, bool) {
 	var plugin string
 	var inRAM bool
 	var port int64
+	var advertiseHost string
+	var masterAddr string
 	var rootCmd = &cobra.Command{
 		Use:   "mapreduce",
 		Short: "MapReduce is an easy-to-use parallel framework by Bo-Wei Chen(BWbwchen)",
@@ -51,7 +53,8 @@ It supports multiple workers threads on a single machine and multiple processes 
 
 			plugin = pluginFiles[0]
 			files = tempFiles
-			MasterIP = ":" + strconv.Itoa(int(port))
+			MasterIP = resolveMasterAddr(masterAddr, int(port))
+			WorkerAdvertiseHost = strings.TrimSpace(advertiseHost)
 		},
 	}
 
@@ -62,6 +65,8 @@ It supports multiple workers threads on a single machine and multiple processes 
 	rootCmd.PersistentFlags().Int64VarP(&nReducer, "reduce", "r", 1, "Number of Reducers")
 	rootCmd.PersistentFlags().Int64VarP(&nWorker, "worker", "w", 4, "Number of Workers(for master node)\nID of worker(for worker node)")
 	rootCmd.PersistentFlags().Int64Var(&port, "port", 10000, "Port number")
+	rootCmd.PersistentFlags().StringVar(&masterAddr, "master", "", "Master address for workers, e.g. 127.0.0.1:11340 (optional)")
+	rootCmd.PersistentFlags().StringVar(&advertiseHost, "advertise-host", "", "Address host advertised to master, e.g. 10.0.0.12 (optional)")
 	rootCmd.PersistentFlags().BoolVarP(&inRAM, "inRAM", "m", true, "Whether write the intermediate file in RAM")
 
 	if err := rootCmd.Execute(); err != nil {
@@ -69,6 +74,17 @@ It supports multiple workers threads on a single machine and multiple processes 
 		os.Exit(1)
 	}
 	return files, plugin, int(nReducer), int(nWorker), inRAM
+}
+
+func resolveMasterAddr(raw string, port int) string {
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return ":" + strconv.Itoa(port)
+	}
+	if strings.Contains(host, ":") {
+		return host
+	}
+	return host + ":" + strconv.Itoa(port)
 }
 
 func startSingleMachineWorker(plugin string, nWorker int, nReducer int, storeInRAM bool) {
@@ -96,7 +112,7 @@ func startSingleMachineWorkerWithMaster(masterAddr string, plugin string, nWorke
 			defer wg.Done()
 			// Keep each worker on a disjoint candidate sequence to avoid collisions.
 			start := basePort + i0 + 1
-			if err := startWorkerWithRetryE(pluginFile, nReducer, start, nWorker, storeInRAM); err != nil {
+			if err := startWorkerWithRetryE(pluginFile, nReducer, start, nWorker, WorkerAdvertiseHost, storeInRAM); err != nil {
 				errCh <- err
 			}
 		}(i)
@@ -155,7 +171,7 @@ func startWorkerWithMaster(masterAddr string, plugin string, id int, nReducer in
 	go func() {
 		defer wg.Done()
 		start := basePort + id + 1
-		runErr = startWorkerWithRetryE(pluginFile, nReducer, start, 1, storeInRAM)
+		runErr = startWorkerWithRetryE(pluginFile, nReducer, start, 1, WorkerAdvertiseHost, storeInRAM)
 	}()
 
 	wg.Wait()
@@ -182,24 +198,25 @@ func masterPort(masterAddr string) int {
 	return 10000
 }
 
-func startWorkerWithRetry(pluginFile string, nReducer int, startPort int, step int, storeInRAM bool) {
-	if err := startWorkerWithRetryE(pluginFile, nReducer, startPort, step, storeInRAM); err != nil {
+func startWorkerWithRetry(pluginFile string, nReducer int, startPort int, step int, advertiseHost string, storeInRAM bool) {
+	if err := startWorkerWithRetryE(pluginFile, nReducer, startPort, step, advertiseHost, storeInRAM); err != nil {
 		panic(err)
 	}
 }
 
-func startWorkerWithRetryE(pluginFile string, nReducer int, startPort int, step int, storeInRAM bool) error {
+func startWorkerWithRetryE(pluginFile string, nReducer int, startPort int, step int, advertiseHost string, storeInRAM bool) error {
 	const maxAttempts = 128
 	if step <= 0 {
 		step = 1
 	}
 	for i := 0; i < maxAttempts; i++ {
 		port := startPort + i*step
-		addr := fmt.Sprintf(":%d", port)
-		if err := startWorkerOnce(pluginFile, nReducer, addr, storeInRAM); err != nil {
+		listenAddr := fmt.Sprintf(":%d", port)
+		advertiseAddr := resolveAdvertiseAddr(advertiseHost, port)
+		if err := startWorkerOnce(pluginFile, nReducer, listenAddr, advertiseAddr, storeInRAM); err != nil {
 			msg := err.Error()
 			if strings.Contains(msg, "address already in use") {
-				fmt.Printf("worker listen %s occupied, trying next port\n", addr)
+				fmt.Printf("worker listen %s occupied, trying next port\n", listenAddr)
 				continue
 			}
 			return err
@@ -209,7 +226,7 @@ func startWorkerWithRetryE(pluginFile string, nReducer int, startPort int, step 
 	return fmt.Errorf("unable to find available worker port from %d after %d attempts", startPort, maxAttempts)
 }
 
-func startWorkerOnce(pluginFile string, nReducer int, addr string, storeInRAM bool) (err error) {
+func startWorkerOnce(pluginFile string, nReducer int, listenAddr string, advertiseAddr string, storeInRAM bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch v := r.(type) {
@@ -222,6 +239,17 @@ func startWorkerOnce(pluginFile string, nReducer int, addr string, storeInRAM bo
 			}
 		}
 	}()
-	worker.StartWorker(pluginFile, nReducer, addr, storeInRAM)
+	worker.StartWorkerWithAdvertise(pluginFile, nReducer, listenAddr, advertiseAddr, storeInRAM)
 	return nil
+}
+
+func resolveAdvertiseAddr(host string, port int) string {
+	raw := strings.TrimSpace(host)
+	if raw == "" {
+		return fmt.Sprintf(":%d", port)
+	}
+	if strings.Contains(raw, ":") {
+		return raw
+	}
+	return net.JoinHostPort(raw, strconv.Itoa(port))
 }

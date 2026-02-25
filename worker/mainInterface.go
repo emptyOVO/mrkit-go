@@ -19,8 +19,12 @@ func Init(masterIP string) {
 }
 
 func StartWorker(pluginFile string, nReduce int, addr string, storeInRAM bool) {
+	StartWorkerWithAdvertise(pluginFile, nReduce, addr, addr, storeInRAM)
+}
+
+func StartWorkerWithAdvertise(pluginFile string, nReduce int, listenAddr string, advertiseAddr string, storeInRAM bool) {
 	// start gRPC server
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -41,7 +45,7 @@ func StartWorker(pluginFile string, nReduce int, addr string, storeInRAM bool) {
 	// Register itself
 	id, err := workerStruct.Client.WorkerRegister(&rpc.WorkerInfo{
 		Uuid: workerStruct.UUID,
-		Ip:   addr,
+		Ip:   advertiseAddr,
 	})
 	if err != nil {
 		log.Panic(err)

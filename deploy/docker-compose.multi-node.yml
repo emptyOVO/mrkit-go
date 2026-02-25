@@ -1,0 +1,88 @@
+services:
+  master:
+    image: golang:1.22
+    container_name: mrkit-master
+    working_dir: /app
+    volumes:
+      - ..:/app
+    environment:
+      GO_BIN: /usr/local/go/bin/go
+      RUN_MODE: go-run
+      MASTER_PORT: "11340"
+      WORKERS: "3"
+      REDUCERS: "1"
+      IN_RAM: "false"
+      PLUGIN_PATH: cmd/wc.so
+      FORCE_REBUILD_PLUGIN: "1"
+      INPUT_GLOB: txt/*.txt
+      RUN_DIR: /tmp/multi-node
+    command: ["bash", "-lc", "./deploy/start_master.sh && tail -f /dev/null"]
+
+  worker1:
+    image: golang:1.22
+    container_name: mrkit-worker-1
+    working_dir: /app
+    depends_on:
+      - master
+    volumes:
+      - ..:/app
+    environment:
+      GO_BIN: /usr/local/go/bin/go
+      RUN_MODE: go-run
+      MASTER_PORT: "11340"
+      MASTER_ADDR: master:11340
+      ADVERTISE_HOST: worker1
+      WORKER_ID: "1"
+      REDUCERS: "1"
+      IN_RAM: "false"
+      PLUGIN_PATH: cmd/wc.so
+      FORCE_REBUILD_PLUGIN: "1"
+      INPUT_GLOB: txt/*.txt
+      RUN_DIR: /tmp/multi-node
+    command: ["bash", "-lc", "sleep 1; ./deploy/start_worker.sh && tail -f /dev/null"]
+
+  worker2:
+    image: golang:1.22
+    container_name: mrkit-worker-2
+    working_dir: /app
+    depends_on:
+      - master
+    volumes:
+      - ..:/app
+    environment:
+      GO_BIN: /usr/local/go/bin/go
+      RUN_MODE: go-run
+      MASTER_PORT: "11340"
+      MASTER_ADDR: master:11340
+      ADVERTISE_HOST: worker2
+      WORKER_ID: "2"
+      REDUCERS: "1"
+      IN_RAM: "false"
+      PLUGIN_PATH: cmd/wc.so
+      FORCE_REBUILD_PLUGIN: "1"
+      INPUT_GLOB: txt/*.txt
+      RUN_DIR: /tmp/multi-node
+    command: ["bash", "-lc", "sleep 1; ./deploy/start_worker.sh && tail -f /dev/null"]
+
+  worker3:
+    image: golang:1.22
+    container_name: mrkit-worker-3
+    working_dir: /app
+    depends_on:
+      - master
+    volumes:
+      - ..:/app
+    environment:
+      GO_BIN: /usr/local/go/bin/go
+      RUN_MODE: go-run
+      MASTER_PORT: "11340"
+      MASTER_ADDR: master:11340
+      ADVERTISE_HOST: worker3
+      WORKER_ID: "3"
+      REDUCERS: "1"
+      IN_RAM: "false"
+      PLUGIN_PATH: cmd/wc.so
+      FORCE_REBUILD_PLUGIN: "1"
+      INPUT_GLOB: txt/*.txt
+      RUN_DIR: /tmp/multi-node
+    command: ["bash", "-lc", "sleep 1; ./deploy/start_worker.sh && tail -f /dev/null"]

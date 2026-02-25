@@ -1,49 +1,110 @@
-# Multi-Node Demo (Minimal)
+# Multi-Node Demo (M2 Minimal)
 
-This is a lightweight 2~3 node demo path using existing legacy master/worker entrypoints.
+This page provides a lightweight multi-node demo path without heavy orchestration.
 
-## Prerequisites
+## Topology (3 machines)
 
-- same repo content on each machine
-- Go toolchain available (`GO_BIN` can be set)
-- network connectivity from workers to master port
+- Machine A: master
+- Machine B: worker-1
+- Machine C: worker-2
 
-## 1) Build plugin once (on each machine or shared path)
+Example addresses:
+
+- master: `10.0.0.11:11340`
+- worker-1: `10.0.0.12`
+- worker-2: `10.0.0.13`
+
+## A) Binary-first deployment (recommended)
+
+This path supports: copy binaries + edit env + one command start.
+
+### 1) Prepare binaries and plugin
 
 ```bash
+# on each machine
 GO_BIN=/path/to/go
+mkdir -p bin cmd
+$GO_BIN build -o bin/legacy-master ./cmd/legacy/master/main
+$GO_BIN build -o bin/legacy-worker ./cmd/legacy/worker/main
 $GO_BIN build -buildmode=plugin -o cmd/wc.so ./mrapps/wc
 ```
 
-## 2) Start master (machine A)
+### 2) Copy env template
 
 ```bash
-MASTER_PORT=11340 WORKERS=3 REDUCERS=1 GO_BIN=/path/to/go ./deploy/start_master.sh
+cp deploy/env.example deploy/.env
 ```
 
-## 3) Start workers (machine B/C/...)
+Edit key fields in `deploy/.env`:
+
+- `RUN_MODE=bin`
+- `MASTER_ADDR=10.0.0.11:11340`
+- `MASTER_PORT=11340`
+- `ADVERTISE_HOST=<worker-node-ip-or-hostname>` (set per worker node)
+- `WORKERS=3`
+- `REDUCERS=1`
+
+### 3) Start master (Machine A)
 
 ```bash
-MASTER_PORT=11340 WORKER_ID=1 REDUCERS=1 GO_BIN=/path/to/go ./deploy/start_worker.sh
-MASTER_PORT=11340 WORKER_ID=2 REDUCERS=1 GO_BIN=/path/to/go ./deploy/start_worker.sh
-MASTER_PORT=11340 WORKER_ID=3 REDUCERS=1 GO_BIN=/path/to/go ./deploy/start_worker.sh
+ENV_FILE=deploy/.env ./deploy/start_master.sh
 ```
 
-## 4) Inspect logs/output
+### 4) Start workers (Machine B/C)
 
 ```bash
-ls -la .run/multi-node
-ls -la mr-out-*.txt
+# Machine B
+ENV_FILE=deploy/.env WORKER_ID=1 ADVERTISE_HOST=10.0.0.12 ./deploy/start_worker.sh
+
+# Machine C
+ENV_FILE=deploy/.env WORKER_ID=2 ADVERTISE_HOST=10.0.0.13 ./deploy/start_worker.sh
 ```
 
-## 5) Stop all
+### 5) Stop all
 
 ```bash
-./deploy/stop_all.sh
+ENV_FILE=deploy/.env ./deploy/stop_all.sh
+```
+
+## B) Docker Compose local multi-container demo
+
+Use this mode for local presentation where one machine simulates multiple nodes.
+
+```bash
+docker compose -f deploy/docker-compose.multi-node.yml up -d
+docker compose -f deploy/docker-compose.multi-node.yml logs -f master
+docker compose -f deploy/docker-compose.multi-node.yml down -v
+```
+
+## C) SSH fanout real multi-machine demo
+
+Use one control machine to batch start/stop workers on remote hosts.
+
+### 1) Configure deploy/.env
+
+Required fields:
+
+- `MASTER_ADDR=10.0.0.11:11340`
+- `WORKER_HOSTS=10.0.0.12,10.0.0.13`
+- `SSH_USER=ubuntu`
+- `SSH_KEY=~/.ssh/id_rsa`
+- `REMOTE_ROOT=~/mrkit-go`
+
+### 2) Start workers in batch
+
+```bash
+ENV_FILE=deploy/.env ./deploy/ssh_fanout.sh start
+```
+
+### 3) Stop workers in batch
+
+```bash
+ENV_FILE=deploy/.env ./deploy/ssh_fanout.sh stop
 ```
 
 ## Notes
 
-- This path is for quick demo and manual verification.
-- It intentionally avoids heavy orchestration dependencies.
-- For config-driven batch flows and M1 stability, use `scripts/quickstart.sh` and `scripts/m1_stability.sh`.
+- For config-driven flow E2E and M1 stability checks, continue using:
+  - `scripts/quickstart.sh`
+  - `scripts/m1_stability.sh`
+- Master-kill failover is not included in current M2.

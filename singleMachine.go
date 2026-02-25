@@ -5,6 +5,7 @@ import (
 )
 
 var MasterIP string = ":10000"
+var WorkerAdvertiseHost string
 var runtimeMu sync.Mutex
 
 func StartSingleMachineJob(input []string, plugin string, nReducer int, nWorker int, inRAM bool) {
