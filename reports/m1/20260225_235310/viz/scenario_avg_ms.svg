@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360">
+<style>text{font-family:Arial,Helvetica,sans-serif;font-size:12px;fill:#1f2937}.title{font-size:16px;font-weight:700}.bar{fill:#3b82f6}.axis{stroke:#9ca3af;stroke-width:1}</style>
+<text x="60" y="24" class="title">M1 Scenario Avg Duration (ms)</text>
+<line x1="60" y1="270" x2="890" y2="270" class="axis"/>
+<line x1="60" y1="40" x2="60" y2="270" class="axis"/>
+<rect class="bar" x="93.2" y="49.2" width="99.6" height="220.8"/>
+<text x="143.0" y="288" text-anchor="middle">m2m</text>
+<text x="143.0" y="43.2" text-anchor="middle">1079</text>
+<rect class="bar" x="259.2" y="65.0" width="99.6" height="205.0"/>
+<text x="309.0" y="288" text-anchor="middle">m2r</text>
+<text x="309.0" y="59.0" text-anchor="middle">1002</text>
+<rect class="bar" x="425.2" y="40.0" width="99.6" height="230.0"/>
+<text x="475.0" y="288" text-anchor="middle">r2m</text>
+<text x="475.0" y="34.0" text-anchor="middle">1124</text>
+<rect class="bar" x="591.2" y="59.6" width="99.6" height="210.4"/>
+<text x="641.0" y="288" text-anchor="middle">r2r</text>
+<text x="641.0" y="53.6" text-anchor="middle">1028</text>
+<rect class="bar" x="757.2" y="69.7" width="99.6" height="200.3"/>
+<text x="807.0" y="288" text-anchor="middle">seed</text>
+<text x="807.0" y="63.7" text-anchor="middle">979</text>
+</svg>

@@ -1,0 +1,46 @@
+{
+  "version": "v1",
+  "source": {
+    "type": "redis",
+    "redis": {
+      "host": "127.0.0.1",
+      "port": 16379,
+      "password": "",
+      "db": 0
+    },
+    "redis_config": {
+      "key_pattern": "event:*",
+      "key_field": "biz_key",
+      "val_field": "metric",
+      "scan_count": 500,
+      "outputdir": "txt/redis_source",
+      "fileprefix": "chunk"
+    }
+  },
+  "transform": {
+    "type": "builtin",
+    "builtin": "count",
+    "reducers": 4,
+    "workers": 8,
+    "in_ram": false,
+    "port": 26303
+  },
+  "sink": {
+    "type": "mysql",
+    "db": {
+      "host": "127.0.0.1",
+      "port": 13306,
+      "user": "root",
+      "password": "123456",
+      "database": "mr_target"
+    },
+    "config": {
+      "targettable": "agg_from_redis_count",
+      "keycolumn": "biz_key",
+      "valcolumn": "metric_sum",
+      "inputglob": "mr-out-*.txt",
+      "replace": true,
+      "batchsize": 2000
+    }
+  }
+}

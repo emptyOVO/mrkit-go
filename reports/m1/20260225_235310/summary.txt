@@ -1,0 +1,18 @@
+M1 Stability Report
+run_id: 20260225_235310
+rounds: 30
+legacy_worker_chaos: 0
+total_cases: 150
+passed: 150
+failed: 0
+pass_rate_pct: 100.00
+
+per_scenario:
+- m2m: total=30, pass=30, fail=0, avg_ms=1079
+- m2r: total=30, pass=30, fail=0, avg_ms=1002
+- r2m: total=30, pass=30, fail=0, avg_ms=1124
+- r2r: total=30, pass=30, fail=0, avg_ms=1028
+- seed: total=30, pass=30, fail=0, avg_ms=979
+
+final_counts:
+- expected=100, m2m=100, r2m=100, seed=100, m2r=100, r2r=100
