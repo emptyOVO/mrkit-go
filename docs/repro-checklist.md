@@ -9,6 +9,12 @@ chmod +x scripts/quickstart.sh
 ./scripts/quickstart.sh
 ```
 
+Stop quickstart services after verification:
+
+```bash
+docker rm -f mrkit-quickstart-mysql mrkit-quickstart-redis
+```
+
 ## Prerequisites
 
 - Go toolchain installed (`go version`)
@@ -101,5 +107,6 @@ done
 ## Cleanup
 
 ```bash
+docker rm -f mrkit-quickstart-mysql mrkit-quickstart-redis 2>/dev/null || true
 rm -f -- mr-out-*.txt output/imd-*.txt txt/redis_source/chunk-*.txt cmd/*.so
 ```
