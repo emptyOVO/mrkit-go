@@ -15,9 +15,9 @@ const FlowVersionV1 = "v1"
 var builtinPluginBuildMu sync.Mutex
 
 var builtinTransformSources = map[string]string{
-	"count":  "mrapps/count.go",
-	"minmax": "mrapps/minmax.go",
-	"topn":   "mrapps/topn.go",
+	"count":  "mrapps/count",
+	"minmax": "mrapps/minmax",
+	"topn":   "mrapps/topn",
 }
 
 // ValidateFlowConfig validates v1 flow schema and required fields.

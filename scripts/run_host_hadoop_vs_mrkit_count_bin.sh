@@ -66,7 +66,7 @@ GOTMPDIR="$ROOT/.cache/go-tmp" \
 GOCACHE="$ROOT/.cache/go-build" \
 GOMODCACHE="$ROOT/.cache/go-mod" \
 GOTMPDIR="$ROOT/.cache/go-tmp" \
-"$GO_BIN" build -buildmode=plugin -o "$PLUGIN_DIR/count.so" "$ROOT/mrapps/count.go"
+"$GO_BIN" build -buildmode=plugin -o "$PLUGIN_DIR/count.so" "$ROOT/mrapps/count"
 
 MAPPER="$OUTDIR/mapper_count.sh"
 REDUCER="$OUTDIR/reducer_count.sh"

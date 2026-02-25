@@ -53,7 +53,7 @@ Use plugin mode for custom logic:
 Build example plugin:
 
 ```bash
-go build -buildmode=plugin -o cmd/agg.so ./mrapps/agg.go
+go build -buildmode=plugin -o cmd/agg.so ./mrapps/agg
 ```
 
 If you build your own plugin, export standard `Map` and `Reduce` functions.

@@ -19,11 +19,11 @@ grpc :
 	protoc --go-grpc_out=rpc --go_out=rpc rpc/*.proto
 
 build_plugin:
-	go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go
-	go build -race -buildmode=plugin -o cmd/merge.so ./mrapps/merge.go
+	go build -race -buildmode=plugin -o cmd/wc.so ./mrapps/wc
+	go build -race -buildmode=plugin -o cmd/merge.so ./mrapps/merge
 
 build_crash:
-	go build -race -buildmode=plugin -o cmd/crash.so ./mrapps/crash.go
+	go build -race -buildmode=plugin -o cmd/crash.so ./mrapps/crash
 
 test_multi_node: clean grpc build_plugin
 	-rm output/*
@@ -67,7 +67,7 @@ clean_port :
 	-./clean_port.sh
 
 mysql_build_plugin:
-	$(GO_BIN) build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/mysql_agg.go
+	$(GO_BIN) build -buildmode=plugin -o cmd/mysql_agg.so ./mrapps/agg
 
 batch_prepare:
 	go run ./cmd/batch -mode prepare

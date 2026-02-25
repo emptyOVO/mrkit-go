@@ -68,12 +68,12 @@ docker build -t mrkit-go-batch:local .
 # legacy single-machine
 docker run --rm --entrypoint /bin/bash \
   -v "$(pwd)":/app -w /app mrkit-go-batch:local \
-  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt; "$GO" run ./cmd/legacy/main/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 4 --port 21100 -m=false; test -f mr-out-0.txt'
+  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc; rm -f -- mr-out-*.txt output/imd-*.txt; "$GO" run ./cmd/legacy/main/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 4 --port 21100 -m=false; test -f mr-out-0.txt'
 
 # legacy master+worker
 docker run --rm --entrypoint /bin/bash \
   -v "$(pwd)":/app -w /app mrkit-go-batch:local \
-  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc.go; rm -f -- mr-out-*.txt output/imd-*.txt /tmp/m.log /tmp/w1.log /tmp/w2.log; "$GO" run ./cmd/legacy/master/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/m.log 2>&1 & MP=$!; sleep 1; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 1 --port 21110 -m=false >/tmp/w1.log 2>&1 & W1=$!; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/w2.log 2>&1 & W2=$!; wait $MP; wait $W1; wait $W2; test -f mr-out-0.txt'
+  -lc 'set -euo pipefail; "$GO" build -buildmode=plugin -o cmd/wc.so ./mrapps/wc; rm -f -- mr-out-*.txt output/imd-*.txt /tmp/m.log /tmp/w1.log /tmp/w2.log; "$GO" run ./cmd/legacy/master/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/m.log 2>&1 & MP=$!; sleep 1; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 1 --port 21110 -m=false >/tmp/w1.log 2>&1 & W1=$!; "$GO" run ./cmd/legacy/worker/main.go -i "txt/*.txt" -p "cmd/wc.so" -r 1 -w 2 --port 21110 -m=false >/tmp/w2.log 2>&1 & W2=$!; wait $MP; wait $W1; wait $W2; test -f mr-out-0.txt'
 ```
 
 ### 3) Docker E2E (seed + 4 cross-DB paths)

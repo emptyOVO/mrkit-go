@@ -47,7 +47,7 @@ go run ./cmd/batch -check -config example/batch-minimal/flows/smoke/flow.mysql.c
 Optional plugin mode:
 
 ```bash
-go build -buildmode=plugin -o cmd/agg.so ./mrapps/agg.go
+go build -buildmode=plugin -o cmd/agg.so ./mrapps/agg
 go run ./cmd/batch -check -config example/batch-minimal/flows/smoke/flow.mysql.json
 ```
 
