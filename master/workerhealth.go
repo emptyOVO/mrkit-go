@@ -1,9 +1,9 @@
 package master
 
 import (
-	// log "github.com/sirupsen/logrus"
-	// "sync"
 	"time"
+
+	"github.com/emptyOVO/mrkit-go/runtime/workerpool"
 )
 
 // If there are 3 continuous unknow, we thought that that worker is dead.
@@ -11,6 +11,7 @@ import (
 
 func (ms *Master) PeriodicHealthCheck() {
 	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 
 	for {
 		<-ticker.C
@@ -20,16 +21,37 @@ func (ms *Master) PeriodicHealthCheck() {
 }
 
 func (ms *Master) checkWorkersHealth() {
-	// var wg sync.WaitGroup
-	// for _, worker := range ms.Workers {
-	// 	// worker.WorkerState = Health(worker.IP)
-	// 	wg.Add(1)
-	// 	go func(w WorkerInfo) {
-	// 		checkHealth(w)
-	// 		wg.Done()
-	// 	}(worker)
-	// }
-	// wg.Wait()
+	ms.mux.Lock()
+	workers := make([]WorkerInfo, len(ms.Workers))
+	copy(workers, ms.Workers)
+	ms.mux.Unlock()
+
+	now := time.Now()
+	for _, w := range workers {
+		state := ms.client.Health(w.IP)
+		ms.setWorkerState(w.UUID, state)
+		if ms.registry == nil {
+			continue
+		}
+		switch state {
+		case WORKER_IDLE:
+			ms.registry.Heartbeat(w.UUID)
+			ms.registry.SetState(w.UUID, workerpool.WorkerIdle)
+		case WORKER_BUSY:
+			ms.registry.Heartbeat(w.UUID)
+			ms.registry.SetState(w.UUID, workerpool.WorkerBusy)
+		default:
+			ms.registry.SetState(w.UUID, workerpool.WorkerUnknown)
+		}
+	}
+
+	if ms.registry == nil {
+		return
+	}
+	evicted := ms.registry.EvictExpired(now)
+	for _, dead := range evicted {
+		ms.setWorkerState(dead.ID, WORKER_UNKNOWN)
+	}
 }
 
 // func checkHealth(worker WorkerInfo) {

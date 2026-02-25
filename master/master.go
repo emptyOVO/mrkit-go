@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/emptyOVO/mrkit-go/rpc"
+	"github.com/emptyOVO/mrkit-go/runtime/workerpool"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -24,6 +26,7 @@ type Master struct {
 	crashChan    chan string
 	mux          sync.Mutex
 	client       RpcClient
+	registry     *workerpool.Registry
 	rpc.UnimplementedMasterServer
 }
 
@@ -35,9 +38,22 @@ func NewMaster(nWorker int, nReduce int) rpc.MasterServer {
 		totalWorkers: nWorker,
 		numReducer:   nReduce,
 		client:       &workerClient{},
+		registry:     workerpool.New(workerLeaseTTLFromEnv()),
 		enoughWorker: make(chan bool, 1),
 		crashChan:    make(chan string, 100),
 	}
+}
+
+func workerLeaseTTLFromEnv() time.Duration {
+	raw := os.Getenv("MR_WORKER_LEASE_TTL_SEC")
+	if raw == "" {
+		return 5 * time.Second
+	}
+	secs, err := strconv.Atoi(raw)
+	if err != nil || secs <= 0 {
+		return 5 * time.Second
+	}
+	return time.Duration(secs) * time.Second
 }
 
 // gRPC functions
@@ -47,6 +63,9 @@ func (ms *Master) WorkerRegister(ctx context.Context, in *rpc.WorkerInfo) (*rpc.
 	ms.mux.Lock()
 	ms.Workers = append(ms.Workers, newWorker(in.Uuid, in.Ip))
 	ms.numWorkers++
+	if ms.registry != nil {
+		ms.registry.Register(in.Uuid, in.Ip)
+	}
 
 	num = ms.numWorkers
 	ms.mux.Unlock()
@@ -147,7 +166,7 @@ LOOP:
 			}
 			if ms.Workers[i].Health() {
 				retInfo = append(retInfo, &ms.Workers[i])
-				ms.Workers[i].SetState(WORKER_BUSY)
+				ms.setWorkerState(ms.Workers[i].UUID, WORKER_BUSY)
 				total += 1
 			} else if ms.Workers[i].Broken() {
 				broken += 1
@@ -254,12 +273,12 @@ func (ms *Master) distributeMapTask() {
 			done := ms.client.Map(workers[id].IP, task.toRPC())
 			if !done {
 				// task.setState(TASK_IDLE)
-				workers[id].SetState(WORKER_UNKNOWN)
+				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
 				ms.crashChan <- workers[id].UUID
 				// crashChan <- task
 			} else {
 				// task.setState(TASK_COMPLETED)
-				workers[id].SetState(WORKER_IDLE)
+				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
 				finish <- workers[id].UUID
 			}
 		}(mapTask, workerID)
@@ -285,11 +304,11 @@ func (ms *Master) distributeMapTask() {
 			done := ms.client.Map(workers[id].IP, task.toRPC())
 			if !done {
 				task.setState(TASK_IDLE)
-				workers[id].SetState(WORKER_UNKNOWN)
+				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
 				ms.crashChan <- workers[id].UUID
 			} else {
 				task.setState(TASK_COMPLETED)
-				workers[id].SetState(WORKER_IDLE)
+				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
 				finish <- workers[id].UUID
 			}
 		}(reExecuteTask.(MapTaskInfo), 0)
@@ -311,15 +330,15 @@ func (ms *Master) distributeReduceTask() {
 		reduceTask.SetState(TASK_INPROGRESS)
 		go func(task ReduceTaskInfo, id int) {
 			taskStates.Store(workers[id].UUID, task)
-			workers[id].SetState(WORKER_BUSY)
+			ms.setWorkerState(workers[id].UUID, WORKER_BUSY)
 			done := ms.client.Reduce(workers[id].IP, task.toRPC())
 			if !done {
 				task.SetState(TASK_IDLE)
-				workers[id].SetState(WORKER_UNKNOWN)
+				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
 				ms.crashChan <- workers[id].UUID
 			} else {
 				task.SetState(TASK_COMPLETED)
-				workers[id].SetState(WORKER_IDLE)
+				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
 				finish <- workers[id].UUID
 			}
 		}(reduceTask, workerID)
@@ -337,11 +356,11 @@ func (ms *Master) distributeReduceTask() {
 			done := ms.client.Reduce(workers[id].IP, task.toRPC())
 			if !done {
 				task.SetState(TASK_IDLE)
-				workers[id].SetState(WORKER_UNKNOWN)
+				ms.setWorkerState(workers[id].UUID, WORKER_UNKNOWN)
 				ms.crashChan <- workers[id].UUID
 			} else {
 				task.SetState(TASK_COMPLETED)
-				workers[id].SetState(WORKER_IDLE)
+				ms.setWorkerState(workers[id].UUID, WORKER_IDLE)
 				finish <- workers[id].UUID
 			}
 		}(reExecuteTask.(ReduceTaskInfo), 0)
@@ -356,4 +375,31 @@ func (ms *Master) endWorkers() {
 		ms.client.End(ms.Workers[i].IP)
 	}
 	log.Trace("[Master] End Workers done")
+}
+
+func (ms *Master) setWorkerState(uuid string, state int) {
+	ms.mux.Lock()
+	defer ms.mux.Unlock()
+	ms.setWorkerStateLocked(uuid, state)
+}
+
+func (ms *Master) setWorkerStateLocked(uuid string, state int) {
+	for i := range ms.Workers {
+		if ms.Workers[i].UUID != uuid {
+			continue
+		}
+		ms.Workers[i].SetState(state)
+		break
+	}
+	if ms.registry == nil {
+		return
+	}
+	switch state {
+	case WORKER_IDLE:
+		ms.registry.SetState(uuid, workerpool.WorkerIdle)
+	case WORKER_BUSY:
+		ms.registry.SetState(uuid, workerpool.WorkerBusy)
+	default:
+		ms.registry.SetState(uuid, workerpool.WorkerUnknown)
+	}
 }
